@@ -19,3 +19,6 @@ ENV/
 # Agents CLI local artifacts/telemetry
 .google-agents-cli/
 .agents_cache/
+*.db
+session.db
+
