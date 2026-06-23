@@ -1,0 +1,21 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+env/
+venv/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+
+# Local configuration / API keys
+.env
+
+# Agents CLI local artifacts/telemetry
+.google-agents-cli/
+.agents_cache/

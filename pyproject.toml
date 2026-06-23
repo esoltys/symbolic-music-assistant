@@ -1,0 +1,16 @@
+[project]
+name = "symbolic-music-assistant"
+version = "0.1.0"
+description = "A symbolic music assistant using google-adk, music21, and pretty_midi"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "google-adk>=2.3.0",
+    "music21>=9.1.0",
+    "pretty-midi>=0.2.10",
+    "matplotlib>=3.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
