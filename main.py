@@ -1,6 +1,10 @@
 import os
 import sys
+import warnings
 from pathlib import Path
+
+# Suppress the experimental JSON schema warning from google.adk tools
+warnings.filterwarnings("ignore", category=UserWarning, module="google.adk")
 
 # Add the 'agents' directory to the path so the agent package can be imported directly
 AGENTS_DIR = Path(__file__).parent / "agents"
@@ -56,5 +60,6 @@ def run_agent_locally(user_input: str):
 
 if __name__ == "__main__":
     # Example execution query
-    run_agent_locally("Analyze the C major chord structure.")
+    run_agent_locally("What is the interval in semitones and name between C4 and G4?")
+
 
