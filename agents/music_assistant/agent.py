@@ -87,6 +87,31 @@ def add_note_to_canvas(pitch: str, duration: str) -> str:
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute canvas manager script: {e}"})
 
+def analyze_midi_file(file_path: str) -> str:
+    """Ingests a raw binary MIDI file and extracts track count, global tempo, and note count.
+
+    Args:
+        file_path: The local path to the MIDI file to analyze.
+
+    Returns:
+        A JSON string containing the status, track_count, tempo, note_count, or error details.
+    """
+    project_root = Path(__file__).parent.parent.parent.resolve()
+    script_path = project_root / "skills" / "midi_analytics" / "scripts" / "parse_midi_metrics.py"
+    
+    python_exe = sys.executable or "python"
+    try:
+        result = subprocess.run(
+            [python_exe, str(script_path), "--file-path", file_path],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        return (result.stdout or result.stderr or 
+                json.dumps({"status": "error", "error": "No output from midi parser script."}))
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to execute midi parser script: {e}"})
+
 root_agent = Agent(
     name="music_assistant_root",
     model=Gemini(
@@ -96,9 +121,10 @@ root_agent = Agent(
     instruction=(
         "You are a symbolic music assistant designed to help with music theory, chords, scores, and MIDI files. "
         "Use the evaluate_interval tool to compute pitch distance and interval names. "
-        "Use the initialize_canvas and add_note_to_canvas tools to manage and construct symbolic scores on the canvas."
+        "Use the initialize_canvas and add_note_to_canvas tools to manage and construct symbolic scores on the canvas. "
+        "Use the analyze_midi_file tool to ingest raw MIDI files and extract track count, tempo, and note count."
     ),
-    tools=[evaluate_interval, initialize_canvas, add_note_to_canvas],
+    tools=[evaluate_interval, initialize_canvas, add_note_to_canvas, analyze_midi_file],
 )
 
 app = App(
