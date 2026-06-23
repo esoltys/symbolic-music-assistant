@@ -26,6 +26,11 @@ def main():
         if not file_path.is_file():
             raise FileNotFoundError(f"MIDI file not found: {args.file_path}")
             
+        # Check file size (limit to 5 MB)
+        max_size_bytes = 5 * 1024 * 1024  # 5 MB
+        if file_path.stat().st_size > max_size_bytes:
+            raise ValueError(f"MIDI file is too large ({file_path.stat().st_size / (1024 * 1024):.1f} MB). Maximum allowed size is 5.0 MB.")
+            
         # Parse MIDI using pretty_midi
         try:
             pm = pretty_midi.PrettyMIDI(str(file_path))
