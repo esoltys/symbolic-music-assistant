@@ -55,6 +55,20 @@
         "role": "user",
         "parts": [{"text": "Please initialize a blank score, add chord C4,E4,G4 as a half note, transpose the score up 2 semitones, and export the resulting score as a MIDI file."}]
       }
+    },
+    {
+      "eval_case_id": "detect_key_score",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Please initialize a score, add notes G4, B4, D5, F#5 as quarter notes to the melody, and detect what key the score is in."}]
+      }
+    },
+    {
+      "eval_case_id": "validate_voice_leading_score",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Please initialize a new score, add a part named soprano with notes C5 then D5, add a part named bass with notes F3 then G3, and check for voice-leading errors."}]
+      }
     }
   ]
 }
