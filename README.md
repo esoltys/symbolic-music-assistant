@@ -1,8 +1,6 @@
 # Symbolic Music Assistant
 
-A powerful, AI-driven symbolic music assistant built using the [Agent Development Kit (ADK)](https://adk.dev/), `music21`, `pretty_midi`, and `FluidSynth`. 
-
-This assistant is designed to help musicians, composers, and developers analyze music, construct scores, perform music theory calculations, render visual notation, and synthesize audio.
+An AI-powered co-pilot for symbolic music processing—helping you compose scores, analyze MIDI, solve music theory queries, and synthesize acoustic audio through simple conversation. Built using the [Agent Development Kit (ADK)](https://adk.dev/), `music21`, `pretty_midi`, and `FluidSynth`.
 
 ---
 
