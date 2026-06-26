@@ -82,14 +82,13 @@ Hear your creations by compiling note sequences into audio.
 
 ```
 symbolic-music-assistant/
-├── app/         # Core agent code (weather/time stubs)
-│   ├── agent.py               # Main agent logic
+├── app/         # FastAPI application and telemetry wrappers
 │   └── app_utils/             # App utilities and helpers
-├── agents/      # ADK CLI agent logic
-│   ├── agent.py               # Wrapper to expose agent
+├── agents/      # ADK agent package
+│   ├── agent.py               # Wrapper to expose music assistant agent
 │   └── music_assistant/       # Core music assistant agent and tools
 ├── skills/      # Custom music skills (theory, score, midi, render, synth)
-├── tests/                     # Unit, integration, and load tests
+├── tests/                     # Unit and integration tests
 ├── GEMINI.md                  # AI-assisted development guide
 └── pyproject.toml             # Project dependencies
 ```
