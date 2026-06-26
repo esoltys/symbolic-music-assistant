@@ -241,13 +241,13 @@ def import_midi_to_score(tool_context: ToolContext, midi_path: str) -> str:
         return json.dumps({"status": "error", "error": f"Failed to execute import-midi script: {e}"})
 
 def analyze_midi_file(file_path: str) -> str:
-    """Ingests a raw binary MIDI file and extracts track count, global tempo, and note count.
+    """Ingests a raw binary MIDI file and extracts track count, global tempo, note count, and detailed instrument listing.
 
     Args:
         file_path: The local path to the MIDI file to analyze.
 
     Returns:
-        A JSON string containing the status, track_count, tempo, note_count, or error details.
+        A JSON string containing the status, track_count, tempo, note_count, list of instruments (names, programs, note counts), or error details.
     """
     project_root = Path(__file__).parent.parent.parent.resolve()
     script_path = project_root / "skills" / "midi_analytics" / "scripts" / "parse_midi_metrics.py"
@@ -264,6 +264,65 @@ def analyze_midi_file(file_path: str) -> str:
                 json.dumps({"status": "error", "error": "No output from midi parser script."}))
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute midi parser script: {e}"})
+
+def detect_key(tool_context: ToolContext, midi_path: str = "") -> str:
+    """Analyzes the active score session or an external MIDI file to detect the musical key and confidence.
+
+    Args:
+        tool_context: The tool execution context containing session data.
+        midi_path: Optional local path to a MIDI file to analyze instead of the active score.
+
+    Returns:
+        A JSON string containing the status, detected key, confidence score, and alternative keys.
+    """
+    project_root = Path(__file__).parent.parent.parent.resolve()
+    script_path = project_root / "skills" / "music_theory_query" / "scripts" / "detect_key.py"
+    session_id = tool_context.session.id
+    
+    python_exe = sys.executable or "python"
+    cmd = [python_exe, str(script_path)]
+    if midi_path:
+        cmd.extend(["--midi-path", midi_path])
+    else:
+        cmd.extend(["--session-id", session_id])
+        
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        return (result.stdout or result.stderr or 
+                json.dumps({"status": "error", "error": "No output from key detection script."}))
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to execute key detection script: {e}"})
+
+def validate_voice_leading(tool_context: ToolContext) -> str:
+    """Validates the active score session for voice-leading errors (parallel fifths/octaves) and vocal range violations.
+
+    Args:
+        tool_context: The tool execution context containing session data.
+
+    Returns:
+        A JSON string containing the status, violation status, and detailed list of parallel fifths, octaves, or range violations.
+    """
+    project_root = Path(__file__).parent.parent.parent.resolve()
+    script_path = project_root / "skills" / "score_construction" / "scripts" / "check_voice_leading.py"
+    session_id = tool_context.session.id
+    
+    python_exe = sys.executable or "python"
+    try:
+        result = subprocess.run(
+            [python_exe, str(script_path), "--session-id", session_id],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        return (result.stdout or result.stderr or 
+                json.dumps({"status": "error", "error": "No output from voice leading checker script."}))
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to execute voice leading checker script: {e}"})
 
 async def render_notation(tool_context: ToolContext) -> str:
     """Renders the current score state to visual piano roll and notation timeline graphs.
@@ -373,11 +432,13 @@ root_agent = Agent(
         "Use the evaluate_interval tool to compute pitch distance and interval names.\n"
         "Use the list_scale_pitches tool to generate the notes/pitches of a specific scale or mode (major, minor, dorian, phrygian, lydian, mixolydian, locrian).\n"
         "Use the analyze_chord tool to identify a chord's common name and optionally perform Roman numeral analysis in a given key.\n"
+        "Use the detect_key tool to estimate/detect the key signature of the active score or a MIDI file.\n"
         "Use the initialize_score and add_note_to_score tools to manage and construct symbolic scores.\n"
         "Use the transpose_score tool to transpose all notes/chords and key signatures in the active score up or down by a given number of semitones.\n"
+        "Use the validate_voice_leading tool to check the active score for classical voice-leading violations (parallel fifths/octaves) and range errors.\n"
         "Use the export_score_to_midi tool to export the active score to a standard MIDI file. When exporting MIDI, you MUST return the actual path of the generated MIDI asset returned by the tool (e.g., `skills/score_construction/assets/score_<session_id>.mid`) in your final response.\n"
         "Use the import_midi_to_score tool to load an external MIDI file into the active score session. When importing a MIDI file, notify the user that the score has been updated, and suggest visualizing or synthesizing it.\n"
-        "Use the analyze_midi_file tool to ingest raw MIDI files and extract track count, tempo, and note count.\n"
+        "Use the analyze_midi_file tool to ingest raw MIDI files and extract track count, tempo, note count, and detailed instrument track information.\n"
         "Use the render_notation tool to visualize the current score state as piano roll and timeline notation graphs. "
         "When rendering visual notation, you MUST return the actual paths of the generated image assets (piano_roll, score_plot) returned by the tool formatted as inline Markdown image links, for example: "
         "![Piano Roll](skills/visual_notation_rendering/assets/piano_roll_<session_id>.png) and ![Score Plot](skills/visual_notation_rendering/assets/score_plot_<session_id>.png) (using the actual session ID from the tool response). "
@@ -389,9 +450,11 @@ root_agent = Agent(
         evaluate_interval,
         list_scale_pitches,
         analyze_chord,
+        detect_key,
         initialize_score,
         add_note_to_score,
         transpose_score,
+        validate_voice_leading,
         export_score_to_midi,
         import_midi_to_score,
         analyze_midi_file,

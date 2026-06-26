@@ -19,12 +19,14 @@ Build, edit, and convert musical scores. The assistant keeps track of your activ
   * Transpose the active score up or down by any number of semitones.
   * Export the active score to standard MIDI (`.mid`) files as session artifacts.
   * Import external MIDI files directly into the active score state for rendering or synthesis.
+  * Validate the active score for voice-leading violations (parallel fifths/octaves) and vocal range errors.
 * **Example Questions & Prompts**:
   * *"Initialize a blank 4/4 score in G Major."*
   * *"Add a quarter note C4 to the melody."*
   * *"Transpose the active score up 2 semitones."*
   * *"Export the score to a MIDI file."*
   * *"Import the MIDI file at skills/midi_analytics/assets/sample.mid"*
+  * *"Check the active score for voice-leading errors."*
 
 ### 2. Music Theory Queries (`querying-music-theory`)
 Perform quick and accurate symbolic music theory calculations.
@@ -33,21 +35,24 @@ Perform quick and accurate symbolic music theory calculations.
   * Spell scales and modes (e.g., Major, Minor, Dorian, Phrygian, Lydian, Mixolydian, Locrian).
   * Identify chords, inversions, and triad status from notes.
   * Perform Roman numeral analysis of chords in a given key signature.
+  * Detect/estimate the key signature of the active score or an external MIDI file.
 * **Example Questions & Prompts**:
   * *"What is the interval between C4 and G#4?"*
   * *"What are the notes in D Dorian?"*
   * *"What chord is C4, E-4, G4, B-4?"*
   * *"What is the Roman numeral of C4, E4, G4 in G Major?"*
+  * *"What key is this MIDI file in?"*
 
 ### 3. MIDI File Analytics (`analyzing-midi-files`)
 Ingest and analyze existing MIDI files to extract structural metrics.
 * **Capabilities**:
-  * Count tracks and total note events.
+  * Count tracks, total note events, and list detailed track/instrument programs and names.
   * Extract global tempo (BPM) and time signatures.
 * **Example Questions & Prompts**:
   * *"Analyze this MIDI file: path/to/song.mid"*
   * *"What is the tempo of the midi at path/to/track.mid?"*
   * *"How many notes and tracks are in the MIDI file at path/to/composition.mid?"*
+  * *"What instruments are in the MIDI file at path/to/song.mid?"*
 
 ### 4. Visual Notation Rendering (`rendering-visual-notation`)
 Generate visual representations of your active score.
