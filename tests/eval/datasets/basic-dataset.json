@@ -13,6 +13,48 @@
         "role": "user",
         "parts": [{"text": "What's the weather like in San Francisco?"}]
       }
+    },
+    {
+      "eval_case_id": "calculate_interval",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "What is the interval between C4 and A-4 in semitones and name?"}]
+      }
+    },
+    {
+      "eval_case_id": "spell_scale",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Can you spell the notes of F# major scale starting from F#4?"}]
+      }
+    },
+    {
+      "eval_case_id": "analyze_chord",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Identify the chord with notes G4, B4, D5, F5 and find its Roman Numeral in C Major."}]
+      }
+    },
+    {
+      "eval_case_id": "midi_analytics",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Can you extract track, tempo, and note count metrics from the MIDI file at skills/midi_analytics/assets/sample.mid?"}]
+      }
+    },
+    {
+      "eval_case_id": "score_construction_and_synthesis",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Please initialize a new score in 4/4 and C Major, add a quarter note C4 to the melody, and then synthesize it to a WAV audio file."}]
+      }
+    },
+    {
+      "eval_case_id": "transpose_and_export_score",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Please initialize a blank score, add chord C4,E4,G4 as a half note, transpose the score up 2 semitones, and export the resulting score as a MIDI file."}]
+      }
     }
   ]
 }
