@@ -12,6 +12,7 @@ dependencies = [
     "google-cloud-logging>=3.16.0",
     "opentelemetry-exporter-otlp>=1.42.1",
     "opentelemetry-exporter-gcp-logging>=1.12.0a0",
+    "tinysoundfont>=0.3.7",
 ]
 
 [build-system]

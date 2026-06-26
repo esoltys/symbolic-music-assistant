@@ -79,74 +79,153 @@ def main():
         volume = 0.5
         decay_rate = 3.0
         
-        # Calculate maximum duration across all parts
-        max_beats = 0.0
-        for part in parts:
-            part_beats = 0.0
-            for measure in part.get("measures", []):
-                for event in measure.get("events", []):
-                    dur_str = event.get("duration", "quarter").lower()
-                    part_beats += DURATION_MAP.get(dur_str, 1.0)
-            if part_beats > max_beats:
-                max_beats = part_beats
-                
-        if max_beats == 0.0:
-            raise ValueError("Canvas has no notes to synthesize.")
-            
-        # Allocate master mixing array (1 beat = 0.5 seconds at 120 BPM)
-        total_seconds = max_beats * 0.5
-        num_samples = int(total_seconds * sample_rate) + 1000  # add buffer for decay tail
-        mixed_audio = [0.0] * num_samples
-        
-        for part in parts:
-            current_beat = 0.0
-            for measure in part.get("measures", []):
-                for event in measure.get("events", []):
-                    dur_str = event.get("duration", "quarter").lower()
-                    dur_beats = DURATION_MAP.get(dur_str, 1.0)
-                    dur_seconds = dur_beats * 0.5
-                    event_samples = int(dur_seconds * sample_rate)
-                    
-                    pitches = event.get("pitches", ["rest"])
-                    
-                    if not pitches or "rest" in [p.lower() for p in pitches]:
-                        current_beat += dur_beats
-                        continue
-                        
-                    start_sample = int(current_beat * 0.5 * sample_rate)
-                    
-                    for pitch_str in pitches:
-                        try:
-                            midi_num = pitch_to_midi(pitch_str)
-                            freq = midi_to_freq(midi_num)
-                            if freq > 0.0:
-                                for i in range(event_samples):
-                                    t = i / sample_rate
-                                    val = math.sin(2.0 * math.pi * freq * t) * math.exp(-decay_rate * t)
-                                    idx = start_sample + i
-                                    if idx < len(mixed_audio):
-                                        mixed_audio[idx] += val
-                        except ValueError:
-                            pass
-                            
-                    current_beat += dur_beats
-                    
-        # Normalize and pack audio data
-        audio_data = bytearray()
-        max_val = max(abs(x) for x in mixed_audio) if mixed_audio else 0.0
-        
-        for val in mixed_audio:
-            if max_val > 0.0:
-                sample = int((val / max_val) * 32767.0 * volume)
+        # Try to synthesize using tinysoundfont if available and a soundfont exists
+        sf2_dir = project_root / "soundfonts"
+        sf2_path = None
+        if sf2_dir.is_dir():
+            preferred = sf2_dir / "TimGM6mb.sf2"
+            if preferred.is_file():
+                sf2_path = preferred
             else:
-                sample = 0
-            sample = max(-32768, min(32767, sample))
-            audio_data.extend(struct.pack('<h', sample))
+                for f in sf2_dir.glob("*.sf2"):
+                    sf2_path = f
+                    break
+
+        use_tinysoundfont = False
+        if sf2_path is not None:
+            try:
+                import tinysoundfont
+                use_tinysoundfont = True
+            except ImportError:
+                pass
+
+        if use_tinysoundfont:
+            # tinysoundfont synthesis (stereo)
+            midi_events = []
+            for part_idx, part in enumerate(parts):
+                channel = part_idx % 16
+                current_beat = 0.0
+                for measure in part.get("measures", []):
+                    for event in measure.get("events", []):
+                        dur_str = event.get("duration", "quarter").lower()
+                        dur_beats = DURATION_MAP.get(dur_str, 1.0)
+                        dur_seconds = dur_beats * 0.5
+                        
+                        pitches = event.get("pitches", ["rest"])
+                        if pitches and "rest" not in [p.lower() for p in pitches]:
+                            start_sec = current_beat * 0.5
+                            end_sec = (current_beat + dur_beats) * 0.5
+                            for pitch_str in pitches:
+                                midi_num = pitch_to_midi(pitch_str)
+                                if midi_num is not None:
+                                    midi_events.append((start_sec, 'on', channel, midi_num))
+                                    midi_events.append((end_sec, 'off', channel, midi_num))
+                        current_beat += dur_beats
+            
+            midi_events.sort(key=lambda e: e[0])
+            
+            synth = tinysoundfont.Synth()
+            sfid = synth.sfload(str(sf2_path))
+            for channel in range(16):
+                synth.program_select(channel, sfid, 0, 0)
+            
+            audio_data = bytearray()
+            current_sample = 0
+            
+            for event in midi_events:
+                event_sec, ev_type, channel, midi_num = event
+                event_sample = int(event_sec * sample_rate)
+                
+                if event_sample > current_sample:
+                    delta_samples = event_sample - current_sample
+                    buf = synth.generate(delta_samples)
+                    fview = buf.cast('f')
+                    for val in fview:
+                        sample = int(val * 32767.0 * volume)
+                        sample = max(-32768, min(32767, sample))
+                        audio_data.extend(struct.pack('<h', sample))
+                    current_sample = event_sample
+                
+                if ev_type == 'on':
+                    synth.noteon(channel, midi_num, 100)
+                else:
+                    synth.noteoff(channel, midi_num)
+            
+            # Render a 2.0-second decay tail
+            tail_samples = int(2.0 * sample_rate)
+            buf = synth.generate(tail_samples)
+            fview = buf.cast('f')
+            for val in fview:
+                sample = int(val * 32767.0 * volume)
+                sample = max(-32768, min(32767, sample))
+                audio_data.extend(struct.pack('<h', sample))
+                
+            channels_count = 2
+        else:
+            # Fallback pure-python sine wave synthesis (mono)
+            max_beats = 0.0
+            for part in parts:
+                part_beats = 0.0
+                for measure in part.get("measures", []):
+                    for event in measure.get("events", []):
+                        dur_str = event.get("duration", "quarter").lower()
+                        part_beats += DURATION_MAP.get(dur_str, 1.0)
+                if part_beats > max_beats:
+                    max_beats = part_beats
+                    
+            if max_beats == 0.0:
+                raise ValueError("Canvas has no notes to synthesize.")
+                
+            total_seconds = max_beats * 0.5
+            num_samples = int(total_seconds * sample_rate) + 1000
+            mixed_audio = [0.0] * num_samples
+            
+            for part in parts:
+                current_beat = 0.0
+                for measure in part.get("measures", []):
+                    for event in measure.get("events", []):
+                        dur_str = event.get("duration", "quarter").lower()
+                        dur_beats = DURATION_MAP.get(dur_str, 1.0)
+                        dur_seconds = dur_beats * 0.5
+                        event_samples = int(dur_seconds * sample_rate)
+                        
+                        pitches = event.get("pitches", ["rest"])
+                        if not pitches or "rest" in [p.lower() for p in pitches]:
+                            current_beat += dur_beats
+                            continue
+                            
+                        start_sample = int(current_beat * 0.5 * sample_rate)
+                        for pitch_str in pitches:
+                            try:
+                                midi_num = pitch_to_midi(pitch_str)
+                                freq = midi_to_freq(midi_num)
+                                if freq > 0.0:
+                                    for i in range(event_samples):
+                                        t = i / sample_rate
+                                        val = math.sin(2.0 * math.pi * freq * t) * math.exp(-decay_rate * t)
+                                        idx = start_sample + i
+                                        if idx < len(mixed_audio):
+                                            mixed_audio[idx] += val
+                            except ValueError:
+                                pass
+                        current_beat += dur_beats
+                        
+            audio_data = bytearray()
+            max_val = max(abs(x) for x in mixed_audio) if mixed_audio else 0.0
+            for val in mixed_audio:
+                if max_val > 0.0:
+                    sample = int((val / max_val) * 32767.0 * volume)
+                else:
+                    sample = 0
+                sample = max(-32768, min(32767, sample))
+                audio_data.extend(struct.pack('<h', sample))
+                
+            channels_count = 1
             
         # Write WAV file
         with wave.open(str(output_file), 'wb') as wav_file:
-            wav_file.setnchannels(1)      # Mono
-            wav_file.setsampwidth(2)     # 16-bit
+            wav_file.setnchannels(channels_count)
+            wav_file.setsampwidth(2)
             wav_file.setframerate(sample_rate)
             wav_file.writeframes(audio_data)
             
