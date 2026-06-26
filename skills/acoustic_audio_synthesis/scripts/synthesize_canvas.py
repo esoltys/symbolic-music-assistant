@@ -46,7 +46,7 @@ def midi_to_freq(midi_num):
     return 440.0 * (2.0 ** ((midi_num - 69) / 12.0))
 
 def main():
-    parser = argparse.ArgumentParser(description="Synthesize canvas state to WAV audio.")
+    parser = argparse.ArgumentParser(description="Synthesize hierarchical score state to WAV audio.")
     parser.add_argument("--canvas-path", help="Path to the canvas state JSON file")
     parser.add_argument("--session-id", type=str, required=True, help="Unique ADK runtime session ID")
     args = parser.parse_args()
@@ -69,9 +69,9 @@ def main():
         with open(canvas_path, "r", encoding="utf-8") as f:
             state = json.load(f)
             
-        notes = state.get("notes", [])
-        if not notes:
-            raise ValueError("Canvas has no notes to synthesize.")
+        parts = state.get("parts", [])
+        if not parts:
+            raise ValueError("Canvas has no parts to synthesize.")
             
         assets_dir.mkdir(parents=True, exist_ok=True)
         
@@ -79,34 +79,70 @@ def main():
         volume = 0.5
         decay_rate = 3.0
         
-        audio_data = bytearray()
+        # Calculate maximum duration across all parts
+        max_beats = 0.0
+        for part in parts:
+            part_beats = 0.0
+            for measure in part.get("measures", []):
+                for event in measure.get("events", []):
+                    dur_str = event.get("duration", "quarter").lower()
+                    part_beats += DURATION_MAP.get(dur_str, 1.0)
+            if part_beats > max_beats:
+                max_beats = part_beats
+                
+        if max_beats == 0.0:
+            raise ValueError("Canvas has no notes to synthesize.")
+            
+        # Allocate master mixing array (1 beat = 0.5 seconds at 120 BPM)
+        total_seconds = max_beats * 0.5
+        num_samples = int(total_seconds * sample_rate) + 1000  # add buffer for decay tail
+        mixed_audio = [0.0] * num_samples
         
-        for note_item in notes:
-            pitch_str = note_item.get("pitch", "rest")
-            duration_str = note_item.get("duration", "quarter").lower()
-            dur_beats = DURATION_MAP.get(duration_str, 1.0)
+        for part in parts:
+            current_beat = 0.0
+            for measure in part.get("measures", []):
+                for event in measure.get("events", []):
+                    dur_str = event.get("duration", "quarter").lower()
+                    dur_beats = DURATION_MAP.get(dur_str, 1.0)
+                    dur_seconds = dur_beats * 0.5
+                    event_samples = int(dur_seconds * sample_rate)
+                    
+                    pitches = event.get("pitches", ["rest"])
+                    
+                    if not pitches or "rest" in [p.lower() for p in pitches]:
+                        current_beat += dur_beats
+                        continue
+                        
+                    start_sample = int(current_beat * 0.5 * sample_rate)
+                    
+                    for pitch_str in pitches:
+                        try:
+                            midi_num = pitch_to_midi(pitch_str)
+                            freq = midi_to_freq(midi_num)
+                            if freq > 0.0:
+                                for i in range(event_samples):
+                                    t = i / sample_rate
+                                    val = math.sin(2.0 * math.pi * freq * t) * math.exp(-decay_rate * t)
+                                    idx = start_sample + i
+                                    if idx < len(mixed_audio):
+                                        mixed_audio[idx] += val
+                        except ValueError:
+                            pass
+                            
+                    current_beat += dur_beats
+                    
+        # Normalize and pack audio data
+        audio_data = bytearray()
+        max_val = max(abs(x) for x in mixed_audio) if mixed_audio else 0.0
+        
+        for val in mixed_audio:
+            if max_val > 0.0:
+                sample = int((val / max_val) * 32767.0 * volume)
+            else:
+                sample = 0
+            sample = max(-32768, min(32767, sample))
+            audio_data.extend(struct.pack('<h', sample))
             
-            # Map beats to seconds (assuming 120 BPM: 1 beat = 0.5 seconds)
-            dur_seconds = dur_beats * 0.5
-            
-            midi_num = pitch_to_midi(pitch_str)
-            freq = midi_to_freq(midi_num)
-            
-            num_samples = int(dur_seconds * sample_rate)
-            
-            for i in range(num_samples):
-                t = i / sample_rate
-                if freq > 0.0:
-                    # Sine wave modulated by exponential decay
-                    val = math.sin(2.0 * math.pi * freq * t) * math.exp(-decay_rate * t)
-                    sample = int(val * 32767 * volume)
-                else:
-                    sample = 0
-                
-                # Clip to 16-bit bounds
-                sample = max(-32768, min(32767, sample))
-                audio_data.extend(struct.pack('<h', sample))
-                
         # Write WAV file
         with wave.open(str(output_file), 'wb') as wav_file:
             wav_file.setnchannels(1)      # Mono
