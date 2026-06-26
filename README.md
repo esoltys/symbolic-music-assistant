@@ -11,28 +11,33 @@ This assistant is designed to help musicians, composers, and developers analyze 
 The assistant is equipped with specialized **Skills** to assist you with various music tasks. Below is a summary of its capabilities and examples of questions or prompts you can ask:
 
 ### 1. Score Construction & Melodic Composition (`building-symbolic-scores`)
-Build and edit musical scores step-by-step. The assistant keeps track of your active session's score state (keys, time signatures, notes, rests, and chords).
+Build, edit, and convert musical scores. The assistant keeps track of your active session's score state (keys, time signatures, notes, rests, and chords).
 * **Capabilities**:
   * Initialize new scores with specific time and key signatures.
   * Append single notes, chords, or rests (specifying pitch, duration, and track/part).
   * Build complex multi-part scores (e.g., melody, bassline).
+  * Transpose the active score up or down by any number of semitones.
+  * Export the active score to standard MIDI (`.mid`) files as session artifacts.
+  * Import external MIDI files directly into the active score state for rendering or synthesis.
 * **Example Questions & Prompts**:
   * *"Initialize a blank 4/4 score in G Major."*
   * *"Add a quarter note C4 to the melody."*
-  * *"Add a half note rest to the bassline."*
-  * *"Add a dotted half chord with notes C4, E4, and G4 to the score."*
+  * *"Transpose the active score up 2 semitones."*
+  * *"Export the score to a MIDI file."*
+  * *"Import the MIDI file at skills/midi_analytics/assets/sample.mid"*
 
 ### 2. Music Theory Queries (`querying-music-theory`)
 Perform quick and accurate symbolic music theory calculations.
 * **Capabilities**:
   * Calculate interval distances and interval names between pitches.
-  * Parse scales, modes (e.g., Dorian, Phrygian, Lydian), and scale degrees.
-  * Solve semitone arithmetic.
+  * Spell scales and modes (e.g., Major, Minor, Dorian, Phrygian, Lydian, Mixolydian, Locrian).
+  * Identify chords, inversions, and triad status from notes.
+  * Perform Roman numeral analysis of chords in a given key signature.
 * **Example Questions & Prompts**:
   * *"What is the interval between C4 and G#4?"*
   * *"What are the notes in D Dorian?"*
-  * *"How many semitones are there between E3 and B-3?"*
-  * *"What is the fifth scale degree of A minor?"*
+  * *"What chord is C4, E-4, G4, B-4?"*
+  * *"What is the Roman numeral of C4, E4, G4 in G Major?"*
 
 ### 3. MIDI File Analytics (`analyzing-midi-files`)
 Ingest and analyze existing MIDI files to extract structural metrics.
