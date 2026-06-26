@@ -44,6 +44,9 @@ Thumbs.db
 # Evaluation/Run session assets
 *eval-session*
 artifacts/
+skills/*/assets/score_*
+skills/*/assets/piano_roll_*
+skills/*/assets/score_plot_*
 
 # SoundFonts (large binary assets for synthesizer)
 *.sf2
