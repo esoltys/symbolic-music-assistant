@@ -37,15 +37,16 @@ def evaluate_interval(start_note: str, end_note: str) -> str:
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute interval calculation script: {e}"})
 
-def initialize_canvas(tool_context: ToolContext, time_signature: str = "4/4") -> str:
+def initialize_canvas(tool_context: ToolContext, time_signature: str = "4/4", key_signature: str = "C Major") -> str:
     """Initializes a fresh localized musical score canvas.
 
     Args:
         tool_context: The tool execution context containing session data.
         time_signature: The time signature for the score (default: '4/4').
+        key_signature: The key signature for the score (default: 'C Major').
 
     Returns:
-        A JSON string containing the status, time_signature, and notes_count.
+        A JSON string containing the status, time_signature, key_signature, and parts_count.
     """
     project_root = Path(__file__).parent.parent.parent.resolve()
     script_path = project_root / "skills" / "score_construction" / "scripts" / "canvas_manager.py"
@@ -54,7 +55,7 @@ def initialize_canvas(tool_context: ToolContext, time_signature: str = "4/4") ->
     python_exe = sys.executable or "python"
     try:
         result = subprocess.run(
-            [python_exe, str(script_path), "init", "--time-signature", time_signature, "--session-id", session_id],
+            [python_exe, str(script_path), "init", "--time-signature", time_signature, "--key-signature", key_signature, "--session-id", session_id],
             capture_output=True,
             text=True,
             check=False
@@ -64,16 +65,17 @@ def initialize_canvas(tool_context: ToolContext, time_signature: str = "4/4") ->
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute canvas manager script: {e}"})
 
-def add_note_to_canvas(tool_context: ToolContext, pitch: str, duration: str) -> str:
-    """Adds/appends a note or rest token sequentially to the active score canvas.
+def add_note_to_canvas(tool_context: ToolContext, pitch: str, duration: str, part_id: str = "melody") -> str:
+    """Adds/appends a note, chord, or rest token to the score canvas for a specific part.
 
     Args:
         tool_context: The tool execution context containing session data.
-        pitch: The note name (e.g. 'C4', 'E-3', 'F#5') or 'rest' for a rest token.
+        pitch: The pitch name (e.g. 'C4', 'rest', or a comma-separated chord like 'C4,E4,G4').
         duration: The duration of the token (e.g. 'quarter', 'half', 'eighth', 'whole').
+        part_id: The ID of the part/track (e.g. 'melody', 'bassline'). Defaults to 'melody'.
 
     Returns:
-        A JSON string containing the status, added note details, and updated notes_count.
+        A JSON string containing the status, added event details, and measure number.
     """
     project_root = Path(__file__).parent.parent.parent.resolve()
     script_path = project_root / "skills" / "score_construction" / "scripts" / "canvas_manager.py"
@@ -82,7 +84,7 @@ def add_note_to_canvas(tool_context: ToolContext, pitch: str, duration: str) -> 
     python_exe = sys.executable or "python"
     try:
         result = subprocess.run(
-            [python_exe, str(script_path), "add", "--pitch", pitch, "--duration", duration, "--session-id", session_id],
+            [python_exe, str(script_path), "add", "--pitch", pitch, "--duration", duration, "--part-id", part_id, "--session-id", session_id],
             capture_output=True,
             text=True,
             check=False
