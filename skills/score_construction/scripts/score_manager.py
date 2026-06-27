@@ -20,6 +20,16 @@ def parse_time_signature(ts_str):
     except Exception:
         return 4.0  # Default to 4 beats per measure if parsing fails
 
+def get_time_signature_for_measure(measure_num, time_signatures_list):
+    ts_list = sorted(time_signatures_list, key=lambda x: x["measure"])
+    current_ts = "4/4"
+    for ts in ts_list:
+        if ts["measure"] <= measure_num:
+            current_ts = ts["ratio"]
+        else:
+            break
+    return current_ts
+
 def transpose_pitch_string(pitch_str, semitones):
     if pitch_str.lower() == "rest" or not pitch_str:
         return "rest"
@@ -260,8 +270,8 @@ def main():
                 
             # Construct music21 score
             m21_score = stream.Score()
-            ts_str = state.get("time_signature", "4/4")
             ks_str = state.get("key_signature", "C Major")
+            time_signatures = state.get("time_signatures", [{"measure": 1, "ratio": state.get("time_signature", "4/4")}])
             
             for part_idx, part in enumerate(state.get("parts", [])):
                 m21_part = stream.Part()
@@ -280,9 +290,19 @@ def main():
                 inst.partName = part.get("name", f"Part {part_idx + 1}")
                 inst.partId = part.get("id", f"part_{part_idx}")
                 
+                previous_ts = None
                 for measure_idx, measure_item in enumerate(part.get("measures", [])):
                     m21_measure = stream.Measure()
-                    m21_measure.number = measure_item.get("number", measure_idx + 1)
+                    m_num = measure_item.get("number", measure_idx + 1)
+                    m21_measure.number = m_num
+                    
+                    ts_str = get_time_signature_for_measure(m_num, time_signatures)
+                    expected_beats = parse_time_signature(ts_str)
+                    
+                    # Add time signature if it changes
+                    if ts_str != previous_ts:
+                        m21_measure.append(meter.TimeSignature(ts_str))
+                        previous_ts = ts_str
                     
                     # Add metadata to the first measure
                     if measure_idx == 0:
@@ -292,29 +312,43 @@ def main():
                             m21_measure.append(clef.BassClef())
                         else:
                             m21_measure.append(clef.TrebleClef())
-                        m21_measure.append(meter.TimeSignature(ts_str))
                         ks_parts = ks_str.strip().split()
                         tonic = ks_parts[0]
                         mode = ks_parts[1].lower() if len(ks_parts) > 1 else "major"
                         m21_measure.append(m21_key.Key(tonic, mode))
                         
-                    for event in measure_item.get("events", []):
-                        pitches = event.get("pitches", ["rest"])
-                        duration_str = event.get("duration", "quarter").lower()
-                        dur_val = DURATION_MAP.get(duration_str, 1.0)
-                        
-                        if not pitches or "rest" in [p.lower() for p in pitches]:
+                    events = measure_item.get("events", [])
+                    if not events:
+                        # Empty measure: pad with a full-measure rest
+                        r = note.Rest()
+                        r.quarterLength = expected_beats
+                        m21_measure.append(r)
+                    else:
+                        current_beats = 0.0
+                        for event in events:
+                            pitches = event.get("pitches", ["rest"])
+                            duration_str = event.get("duration", "quarter").lower()
+                            dur_val = DURATION_MAP.get(duration_str, 1.0)
+                            
+                            if not pitches or "rest" in [p.lower() for p in pitches]:
+                                r = note.Rest()
+                                r.quarterLength = dur_val
+                                m21_measure.append(r)
+                            elif len(pitches) == 1:
+                                n = note.Note(pitches[0])
+                                n.quarterLength = dur_val
+                                m21_measure.append(n)
+                            else:
+                                c = chord.Chord(pitches)
+                                c.quarterLength = dur_val
+                                m21_measure.append(c)
+                            current_beats += dur_val
+                            
+                        # Pad incomplete measure
+                        if current_beats < expected_beats - 1e-5:
                             r = note.Rest()
-                            r.quarterLength = dur_val
+                            r.quarterLength = expected_beats - current_beats
                             m21_measure.append(r)
-                        elif len(pitches) == 1:
-                            n = note.Note(pitches[0])
-                            n.quarterLength = dur_val
-                            m21_measure.append(n)
-                        else:
-                            c = chord.Chord(pitches)
-                            c.quarterLength = dur_val
-                            m21_measure.append(c)
                             
                     m21_part.append(m21_measure)
                 m21_score.append(m21_part)
