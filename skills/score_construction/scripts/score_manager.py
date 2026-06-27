@@ -273,6 +273,16 @@ def main():
             ks_str = state.get("key_signature", "C Major")
             time_signatures = state.get("time_signatures", [{"measure": 1, "ratio": state.get("time_signature", "4/4")}])
             
+            # Precompute the max duration of each measure across all parts to handle missing/incomplete time signatures
+            measure_max_beats = {}
+            for part in state.get("parts", []):
+                for measure_item in part.get("measures", []):
+                    m_num = measure_item.get("number")
+                    events = measure_item.get("events", [])
+                    beats = sum(DURATION_MAP.get(e.get("duration", "quarter").lower(), 1.0) for e in events)
+                    if m_num is not None:
+                        measure_max_beats[m_num] = max(measure_max_beats.get(m_num, 0.0), beats)
+
             for part_idx, part in enumerate(state.get("parts", [])):
                 m21_part = stream.Part()
                 m21_part.id = part.get("id", f"part_{part_idx}")
@@ -298,6 +308,8 @@ def main():
                     
                     ts_str = get_time_signature_for_measure(m_num, time_signatures)
                     expected_beats = parse_time_signature(ts_str)
+                    # Fallback: pad to the longest part's duration in this measure if it exceeds time signature
+                    expected_beats = max(expected_beats, measure_max_beats.get(m_num, 0.0))
                     
                     # Add time signature if it changes
                     if ts_str != previous_ts:
