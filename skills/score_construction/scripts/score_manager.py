@@ -30,6 +30,13 @@ def get_time_signature_for_measure(measure_num, time_signatures_list):
             break
     return current_ts
 
+def beats_to_time_signature(beats):
+    if abs(beats - round(beats)) < 1e-5:
+        return f"{int(round(beats))}/4"
+    if abs(beats * 2 - round(beats * 2)) < 1e-5:
+        return f"{int(round(beats * 2))}/8"
+    return f"{int(round(beats * 4))}/16"
+
 def transpose_pitch_string(pitch_str, semitones):
     if pitch_str.lower() == "rest" or not pitch_str:
         return "rest"
@@ -308,8 +315,11 @@ def main():
                     
                     ts_str = get_time_signature_for_measure(m_num, time_signatures)
                     expected_beats = parse_time_signature(ts_str)
-                    # Fallback: pad to the longest part's duration in this measure if it exceeds time signature
-                    expected_beats = max(expected_beats, measure_max_beats.get(m_num, 0.0))
+                    
+                    actual_max = measure_max_beats.get(m_num, 0.0)
+                    if actual_max > expected_beats:
+                        expected_beats = actual_max
+                        ts_str = beats_to_time_signature(expected_beats)
                     
                     # Add time signature if it changes
                     if ts_str != previous_ts:
