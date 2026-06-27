@@ -896,7 +896,7 @@ root_agent = Agent(
         "Use the initialize_score and add_note_to_score tools to manage and construct symbolic scores.\n"
         "Use the transpose_score tool to transpose all notes/chords and key signatures in the active score up or down by a given number of semitones.\n"
         "Use the validate_voice_leading tool to check the active score for classical voice-leading violations (parallel fifths/octaves) and range errors.\n"
-        "Use the export_score_to_midi tool to export the active score to a standard MIDI file. When exporting MIDI, you MUST return the actual path of the generated MIDI asset returned by the tool (e.g., `skills/score_construction/assets/score_<session_id>.mid`) in your final response.\n"
+        "Use the export_score_to_midi tool to export the active score to a standard MIDI file. When exporting MIDI, you MUST return the absolute path of the generated MIDI asset formatted as a clickable Markdown link using the file:// scheme, for example: [score_<session_id>.mid](file:///C:/Users/ericj/source/symbolic-music-assistant/skills/score_construction/assets/score_<session_id>.mid).\n"
         "Use the import_midi_to_score tool to load an external MIDI file into the active score session. When you run import_midi_to_score, you MUST list the automatically assigned instruments for all tracks in your response to the user. "
         "Additionally, if the tool returns any tracks in 'uncertain_parts' (meaning they defaulted to Acoustic Grand Piano (0) but their track names suggest they might be different instruments), you MUST ask the user for clarification about which General MIDI instruments they want to assign to those tracks.\n"
         "Use the list_soundfonts tool to view available soundfont files and their descriptions.\n"
@@ -907,9 +907,9 @@ root_agent = Agent(
         "Use the render_notation tool to visualize the current score state as piano roll and timeline notation graphs. "
         "When rendering visual notation, you MUST return the actual paths of the generated image assets (piano_roll, score_plot) returned by the tool formatted as inline Markdown image links, for example: "
         "![Piano Roll](skills/visual_notation_rendering/assets/piano_roll_<session_id>.png) and ![Score Plot](skills/visual_notation_rendering/assets/score_plot_<session_id>.png) (using the actual session ID from the tool response). "
-        "Additionally, you MUST explicitly notify the user that the high-fidelity MusicXML asset is ready for MuseScore inspection, including its actual file path returned by the tool (e.g., `skills/visual_notation_rendering/assets/score_<session_id>.musicxml`).\n"
+        "Additionally, you MUST explicitly notify the user that the high-fidelity MusicXML asset is ready for MuseScore inspection, formatted as a clickable Markdown file link using the file:// scheme and its absolute path, for example: [score_<session_id>.musicxml](file:///C:/Users/ericj/source/symbolic-music-assistant/skills/visual_notation_rendering/assets/score_<session_id>.musicxml).\n"
         "Use the synthesize_score tool to compile the notes from the score state into a WAV audio file. You can optionally filter which tracks are played/synthesized by passing a comma-separated list of track IDs, names, or 1-based indices/ranges (e.g. 'piano', '1', '7-8') to the tracks parameter. "
-        "When synthesizing audio, you MUST return the actual path of the generated audio asset returned by the tool (e.g., `skills/acoustic_audio_synthesis/assets/score_<session_id>.wav`) in your final response."
+        "When synthesizing audio, you MUST return the absolute path of the generated audio asset formatted as a clickable Markdown link using the file:// scheme, for example: [score_<session_id>.wav](file:///C:/Users/ericj/source/symbolic-music-assistant/skills/acoustic_audio_synthesis/assets/score_<session_id>.wav)."
     ),
     tools=[
         evaluate_interval,
