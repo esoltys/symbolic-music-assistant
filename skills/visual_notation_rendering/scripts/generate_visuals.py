@@ -98,6 +98,17 @@ def main():
         if not parts:
             raise ValueError("Score has no parts to render.")
             
+        # Normalize all parts to have the exact same number of measures
+        max_measures = max(len(p.get("measures", [])) for p in parts)
+        for p in parts:
+            curr_len = len(p.get("measures", []))
+            if curr_len < max_measures:
+                for m_idx in range(curr_len, max_measures):
+                    p.setdefault("measures", []).append({
+                        "number": m_idx + 1,
+                        "events": []
+                    })
+            
         # Ensure output assets folder exists
         assets_dir.mkdir(parents=True, exist_ok=True)
         

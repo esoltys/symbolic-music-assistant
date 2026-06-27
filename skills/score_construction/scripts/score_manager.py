@@ -275,6 +275,19 @@ def main():
             with open(state_file, "r", encoding="utf-8") as f:
                 state = json.load(f)
                 
+            # Normalize all parts to have the exact same number of measures
+            parts = state.get("parts", [])
+            if parts:
+                max_measures = max(len(p.get("measures", [])) for p in parts)
+                for p in parts:
+                    curr_len = len(p.get("measures", []))
+                    if curr_len < max_measures:
+                        for m_idx in range(curr_len, max_measures):
+                            p.setdefault("measures", []).append({
+                                "number": m_idx + 1,
+                                "events": []
+                            })
+                
             # Construct music21 score
             m21_score = stream.Score()
             ks_str = state.get("key_signature", "C Major")
