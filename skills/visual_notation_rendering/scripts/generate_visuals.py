@@ -74,6 +74,7 @@ def main():
     parser = argparse.ArgumentParser(description="Render hierarchical score state to visual plots and MusicXML.")
     parser.add_argument("--score-path", help="Path to the score state JSON file")
     parser.add_argument("--session-id", required=True, help="Unique ADK runtime session ID")
+    parser.add_argument("--tracks", default="", help="Optional comma-separated list of tracks to render")
     args = parser.parse_args()
 
     # Determine paths
@@ -97,6 +98,28 @@ def main():
         parts = state.get("parts", [])
         if not parts:
             raise ValueError("Score has no parts to render.")
+            
+        if args.tracks:
+            selected_specs = [t.strip().lower() for t in args.tracks.split(",") if t.strip()]
+            filtered_parts = []
+            for part_idx, part in enumerate(parts):
+                part_id = part.get("id", "").lower()
+                part_name = part.get("name", "").lower()
+                track_num_str = str(part_idx + 1)
+                
+                match = False
+                for spec in selected_specs:
+                    if spec == track_num_str:
+                        match = True
+                        break
+                    if spec in part_id or spec in part_name:
+                        match = True
+                        break
+                if match:
+                    filtered_parts.append(part)
+            parts = filtered_parts
+            if not parts:
+                raise ValueError(f"No tracks matched filter: {args.tracks}")
             
         # Normalize all parts to have the exact same number of measures
         max_measures = max(len(p.get("measures", [])) for p in parts)

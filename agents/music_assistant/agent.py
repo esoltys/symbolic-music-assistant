@@ -504,11 +504,12 @@ def validate_voice_leading(tool_context: ToolContext) -> str:
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute voice leading checker script: {e}"})
 
-async def render_notation(tool_context: ToolContext) -> str:
+async def render_notation(tool_context: ToolContext, tracks: str = "") -> str:
     """Renders the current score state to visual piano roll and notation timeline graphs.
 
     Args:
         tool_context: The tool execution context containing session data.
+        tracks: Optional comma-separated list of track IDs, names, or 1-based indices/ranges (e.g. 'piano', '1', '7-8') to render. If not specified, all tracks are rendered.
 
     Returns:
         A JSON string containing the status, piano_roll image path, notation_layout image path, score_plot image path, or error details.
@@ -518,9 +519,13 @@ async def render_notation(tool_context: ToolContext) -> str:
     session_id = tool_context.session.id
     
     python_exe = sys.executable or "python"
+    cmd = [python_exe, str(script_path), "--session-id", session_id]
+    if tracks:
+        cmd.extend(["--tracks", tracks])
+        
     try:
         result = subprocess.run(
-            [python_exe, str(script_path), "--session-id", session_id],
+            cmd,
             capture_output=True,
             text=True,
             check=False
@@ -904,12 +909,13 @@ root_agent = Agent(
         "Use the assign_instrument_to_track tool to manually assign a specific General MIDI instrument (program number 0-127) and optionally flag it as unpitched percussion for a given part_id in the score.\n"
         "Use the set_score_tempo tool to set or change the tempo (in BPM) at a specific beat offset in the active score.\n"
         "Use the analyze_midi_file tool to ingest raw MIDI files and extract track count, tempo, note count, and detailed instrument track information.\n"
-        "Use the render_notation tool to visualize the current score state as piano roll and timeline notation graphs. "
+        "Use the render_notation tool to visualize the current score state as piano roll and timeline notation graphs. You can optionally filter which tracks are rendered/exported by passing a comma-separated list of track IDs, names, or 1-based indices/ranges (e.g. 'piano', '1', '7-8') to the tracks parameter. "
         "When rendering visual notation, you MUST return the actual paths of the generated image assets (piano_roll, score_plot) returned by the tool formatted as inline Markdown image links, for example: "
         "![Piano Roll](skills/visual_notation_rendering/assets/piano_roll_<session_id>.png) and ![Score Plot](skills/visual_notation_rendering/assets/score_plot_<session_id>.png) (using the actual session ID from the tool response). "
         "Additionally, you MUST explicitly notify the user that the high-fidelity MusicXML asset is ready for MuseScore inspection, formatted as a clickable Markdown file link using the file:// scheme and its absolute path, for example: [score_<session_id>.musicxml](file:///C:/Users/ericj/source/symbolic-music-assistant/skills/visual_notation_rendering/assets/score_<session_id>.musicxml).\n"
         "Use the synthesize_score tool to compile the notes from the score state into a WAV audio file. You can optionally filter which tracks are played/synthesized by passing a comma-separated list of track IDs, names, or 1-based indices/ranges (e.g. 'piano', '1', '7-8') to the tracks parameter. "
-        "When synthesizing audio, you MUST return the absolute path of the generated audio asset formatted as a clickable Markdown link using the file:// scheme, for example: [score_<session_id>.wav](file:///C:/Users/ericj/source/symbolic-music-assistant/skills/acoustic_audio_synthesis/assets/score_<session_id>.wav)."
+        "When synthesizing audio, you MUST return the absolute path of the generated audio asset formatted as a clickable Markdown link using the file:// scheme, for example: [score_<session_id>.wav](file:///C:/Users/ericj/source/symbolic-music-assistant/skills/acoustic_audio_synthesis/assets/score_<session_id>.wav).\n"
+        "IMPORTANT: If the user requests to 'export' the score without specifying a format, you MUST clarify whether they want a MIDI file (using export_score_to_midi) or visual notation/sheet music (using render_notation)."
     ),
     tools=[
         evaluate_interval,
