@@ -559,7 +559,7 @@ async def render_notation(tool_context: ToolContext, tracks: str = "") -> str:
                     data = f.read()
                 await tool_context.save_artifact(
                     filename=f"score_{session_id}.musicxml",
-                    artifact=types.Part.from_bytes(data=data, mime_type="application/xml")
+                    artifact=types.Part.from_bytes(data=data, mime_type="application/vnd.recordare.musicxml+xml")
                 )
 
         return (result.stdout or result.stderr or 
@@ -910,9 +910,9 @@ root_agent = Agent(
         "Use the set_score_tempo tool to set or change the tempo (in BPM) at a specific beat offset in the active score.\n"
         "Use the analyze_midi_file tool to ingest raw MIDI files and extract track count, tempo, note count, and detailed instrument track information.\n"
         "Use the render_notation tool to visualize the current score state as piano roll and timeline notation graphs. You can optionally filter which tracks are rendered/exported by passing a comma-separated list of track IDs, names, or 1-based indices/ranges (e.g. 'piano', '1', '7-8') to the tracks parameter. "
-        "When rendering visual notation, you MUST return the actual paths of the generated image assets (piano_roll, score_plot) returned by the tool formatted as inline Markdown image links, for example: "
+        "When rendering visual notation, if the user explicitly requested a piano roll, visualization, or plot, you MUST return the actual paths of the generated image assets (piano_roll, score_plot) returned by the tool formatted as inline Markdown image links, for example: "
         "![Piano Roll](skills/visual_notation_rendering/assets/piano_roll_<session_id>.png) and ![Score Plot](skills/visual_notation_rendering/assets/score_plot_<session_id>.png) (using the actual session ID from the tool response). "
-        "Additionally, you MUST explicitly notify the user that the high-fidelity MusicXML asset is ready for MuseScore inspection, formatted as a clickable Markdown file link using the file:// scheme and its absolute path, for example: [score_<session_id>.musicxml](file:///C:/Users/ericj/source/symbolic-music-assistant/skills/visual_notation_rendering/assets/score_<session_id>.musicxml).\n"
+        "Otherwise, if the user only requested sheet music or a MusicXML file, you MUST NOT embed the piano roll images in your response, and you MUST only explicitly notify the user that the high-fidelity MusicXML asset is ready for MuseScore inspection, formatted as a clickable Markdown file link using the file:// scheme and its absolute path, for example: [score_<session_id>.musicxml](file:///C:/Users/ericj/source/symbolic-music-assistant/skills/visual_notation_rendering/assets/score_<session_id>.musicxml).\n"
         "Use the synthesize_score tool to compile the notes from the score state into a WAV audio file. You can optionally filter which tracks are played/synthesized by passing a comma-separated list of track IDs, names, or 1-based indices/ranges (e.g. 'piano', '1', '7-8') to the tracks parameter. "
         "When synthesizing audio, you MUST return the absolute path of the generated audio asset formatted as a clickable Markdown link using the file:// scheme, for example: [score_<session_id>.wav](file:///C:/Users/ericj/source/symbolic-music-assistant/skills/acoustic_audio_synthesis/assets/score_<session_id>.wav).\n"
         "IMPORTANT: If the user requests to 'export' the score without specifying a format, you MUST clarify whether they want a MIDI file (using export_score_to_midi) or visual notation/sheet music (using render_notation)."
