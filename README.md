@@ -368,6 +368,13 @@ Add the following entry to the `mcpServers` block:
 
 * **File Access Permissions:** By default, Cadence allows access to files inside the project root, the current working directory, and non-hidden directories inside your user home folder (such as `Downloads` or `Claude`). To grant access to folders outside these locations, define them in the optional `CADENCE_ALLOWED_PATHS` environment variable (separated by semicolons on Windows, or colons on macOS/Linux).
 * **Headless/Sandbox File Ingestion:** If the client (like Claude Desktop) is running in a sandbox, container, or VM and cannot directly share a local file path with the host system, the tools `analyze_midi_file`, `detect_key`, and `import_midi_to_score` support a `file_content_base64` parameter. The client can read the file content locally and pass it as a base64-encoded string, bypassing filesystem boundaries.
+* **Exposed MCP Resources:** To retrieve generated scores, rendering plots, and synthesized audio files directly via the MCP protocol, the server exposes the following dynamic resource templates (replacing `{session_id}` with the unique score session ID, e.g. `default`):
+  - `music://scores/{session_id}/score.mid` (MIME: `audio/midi`) - The exported MIDI score.
+  - `music://scores/{session_id}/score.musicxml` (MIME: `application/xml`) - The MusicXML sheet music.
+  - `music://scores/{session_id}/piano_roll.png` (MIME: `image/png`) - Rendered piano roll visualization.
+  - `music://scores/{session_id}/score_plot.png` (MIME: `image/png`) - Rendered notation timeline graph.
+  - `music://scores/{session_id}/score.wav` (MIME: `audio/wav`) - Synthesized WAV audio file.
+
 
 
 ### 🛠️ Project Management

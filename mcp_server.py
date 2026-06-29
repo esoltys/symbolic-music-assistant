@@ -348,6 +348,7 @@ def export_score_to_midi(session_id: str = "default") -> str:
             assets_dir = _PROJECT_ROOT / "skills" / "score_construction" / "assets"
             midi_file = assets_dir / f"score_{session_id}.mid"
             data["midi_path"] = str(midi_file.resolve())
+            data["resource_uri"] = f"music://scores/{session_id}/score.mid"
             return json.dumps(data, indent=2)
     except Exception:
         pass
@@ -509,6 +510,7 @@ def synthesize_score(tracks: str = "", soundfont: str = "", session_id: str = "d
             assets_dir = _PROJECT_ROOT / "skills" / "acoustic_audio_synthesis" / "assets"
             wav_file = assets_dir / f"score_{session_id}.wav"
             data["audio_path"] = str(wav_file.resolve())
+            data["resource_uri"] = f"music://scores/{session_id}/score.wav"
             return json.dumps(data, indent=2)
     except Exception:
         pass
@@ -546,10 +548,67 @@ def render_notation(tracks: str = "", session_id: str = "default") -> str:
                 if key in data and data[key]:
                     filename = Path(data[key]).name
                     data[key] = str((assets_dir / filename).resolve())
+            data["piano_roll_uri"] = f"music://scores/{session_id}/piano_roll.png"
+            data["score_plot_uri"] = f"music://scores/{session_id}/score_plot.png"
+            data["musicxml_uri"] = f"music://scores/{session_id}/score.musicxml"
             return json.dumps(data, indent=2)
     except Exception:
         pass
     return res_json
+
+
+# ===========================================================================
+# 6. MCP Resources (Exposing Files to the Client)
+# ===========================================================================
+
+@mcp.resource("music://scores/{session_id}/score.mid", mime_type="audio/midi")
+def get_score_midi(session_id: str) -> bytes:
+    """Get the exported MIDI file bytes for a session."""
+    session_id = _sanitize_arg(session_id)
+    midi_file = _PROJECT_ROOT / "skills" / "score_construction" / "assets" / f"score_{session_id}.mid"
+    if midi_file.is_file():
+        return midi_file.read_bytes()
+    raise FileNotFoundError(f"MIDI file not found for session: {session_id}")
+
+
+@mcp.resource("music://scores/{session_id}/score.musicxml", mime_type="application/xml")
+def get_score_xml(session_id: str) -> str:
+    """Get the MusicXML score content for a session."""
+    session_id = _sanitize_arg(session_id)
+    xml_file = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "assets" / f"score_{session_id}.musicxml"
+    if xml_file.is_file():
+        return xml_file.read_text(encoding="utf-8")
+    raise FileNotFoundError(f"MusicXML file not found for session: {session_id}")
+
+
+@mcp.resource("music://scores/{session_id}/piano_roll.png", mime_type="image/png")
+def get_piano_roll(session_id: str) -> bytes:
+    """Get the rendered piano roll image bytes for a session."""
+    session_id = _sanitize_arg(session_id)
+    img_file = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "assets" / f"piano_roll_{session_id}.png"
+    if img_file.is_file():
+        return img_file.read_bytes()
+    raise FileNotFoundError(f"Piano roll image not found for session: {session_id}")
+
+
+@mcp.resource("music://scores/{session_id}/score_plot.png", mime_type="image/png")
+def get_score_plot(session_id: str) -> bytes:
+    """Get the rendered score plot image bytes for a session."""
+    session_id = _sanitize_arg(session_id)
+    img_file = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "assets" / f"score_plot_{session_id}.png"
+    if img_file.is_file():
+        return img_file.read_bytes()
+    raise FileNotFoundError(f"Score plot image not found for session: {session_id}")
+
+
+@mcp.resource("music://scores/{session_id}/score.wav", mime_type="audio/wav")
+def get_score_wav(session_id: str) -> bytes:
+    """Get the synthesized WAV audio file bytes for a session."""
+    session_id = _sanitize_arg(session_id)
+    wav_file = _PROJECT_ROOT / "skills" / "acoustic_audio_synthesis" / "assets" / f"score_{session_id}.wav"
+    if wav_file.is_file():
+        return wav_file.read_bytes()
+    raise FileNotFoundError(f"WAV audio file not found for session: {session_id}")
 
 
 # ---------------------------------------------------------------------------
