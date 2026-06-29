@@ -1,25 +1,9 @@
-"""MCP server for Cadence — Music Theory Tools.
+"""MCP server for Cadence — Music Assistant Tools.
 
-Exposes the three stateless music-theory tools as a Model Context Protocol (MCP)
+Exposes the full suite of music theory, score construction, MIDI analytics,
+notation rendering, and audio synthesis tools as a Model Context Protocol (MCP)
 server so that external MCP clients (e.g. Claude Desktop, other ADK agents, or
-any MCP-compatible application) can call them directly without running the full
-assistant agent.
-
-Exposed tools
--------------
-* evaluate_interval  — compute semitone distance and interval name between two pitches
-* list_scale_pitches — spell a scale or mode (major, minor, dorian, …)
-* analyze_chord      — identify a chord's name, inversion, triad status, and Roman numeral
-
-Usage
------
-Run the server (stdio transport, compatible with Claude Desktop):
-
-    uv run python mcp_server.py
-
-Or from the agents-cli playground, connect to it as an MCP tool source.
-
-See README.md for Claude Desktop configuration instructions.
+any MCP-compatible application) can call them directly.
 """
 
 import sys
@@ -28,6 +12,17 @@ import json
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
+
+# Import stateless helpers from the main agent to avoid duplicating static definitions
+try:
+    from agents.music_assistant.agent import list_soundfonts as _list_soundfonts
+    from agents.music_assistant.agent import list_soundfont_instruments as _list_instruments
+except ImportError:
+    # Fallback to local stub implementations if importing fails
+    def _list_soundfonts():
+        return json.dumps({"status": "success", "soundfonts": []})
+    def _list_instruments():
+        return json.dumps({"status": "success", "instrument_categories": {}})
 
 # ---------------------------------------------------------------------------
 # Security helpers (mirrors agents/music_assistant/agent.py)
@@ -63,9 +58,9 @@ def _sanitize_arg(value: str, max_len: int = _MAX_ARG_LEN) -> str:
 mcp = FastMCP(
     name="cadence-music-theory",
     instructions=(
-        "A music theory MCP server for Cadence, the AI music assistant. "
-        "Provides three stateless tools: evaluate_interval, list_scale_pitches, "
-        "and analyze_chord. All tools use music21 under the hood."
+        "A music theory and score construction MCP server for Cadence, the AI music assistant. "
+        "Provides stateless music theory queries, alongside score construction, voice leading checks, "
+        "notation rendering, and audio synthesis (WAV files using SoundFonts)."
     ),
 )
 
@@ -95,6 +90,10 @@ def _run_script(script_path: Path, args: list[str]) -> str:
     except Exception as exc:
         return json.dumps({"status": "error", "error": str(exc)})
 
+
+# ===========================================================================
+# 1. Stateless Music Theory Tools
+# ===========================================================================
 
 @mcp.tool()
 def evaluate_interval(start_note: str, end_note: str) -> str:
@@ -151,6 +150,316 @@ def analyze_chord(pitches: str, key_signature: str = "") -> str:
     if key_signature:
         args += ["--key", key_signature]
     return _run_script(script, args)
+
+
+@mcp.tool()
+def detect_key(midi_path: str = "", session_id: str = "default") -> str:
+    """Estimate/detect the musical key signature of the active score or a MIDI file.
+
+    Args:
+        midi_path:  Optional local path to a MIDI file to analyze instead of the active score.
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, detected_key, confidence, relative_keys.
+    """
+    session_id = _sanitize_arg(session_id)
+    resolved_path = ""
+    if midi_path:
+        safe = _safe_resolve_path(midi_path)
+        if safe and Path(safe).is_file():
+            resolved_path = safe
+        else:
+            return json.dumps({"status": "error", "error": f"Invalid or non-existent MIDI file path: {midi_path}"})
+
+    script = _PROJECT_ROOT / "skills" / "music_theory_query" / "scripts" / "detect_key.py"
+    args = []
+    if resolved_path:
+        args += ["--midi-path", resolved_path]
+    else:
+        args += ["--session-id", session_id]
+    return _run_script(script, args)
+
+
+# ===========================================================================
+# 2. Score Construction & Editing Tools
+# ===========================================================================
+
+@mcp.tool()
+def initialize_score(time_signature: str = "4/4", key_signature: str = "C Major", session_id: str = "default") -> str:
+    """Initialize a fresh score session.
+
+    Args:
+        time_signature: Time signature for the score (default: '4/4').
+        key_signature:  Key signature for the score (default: 'C Major').
+        session_id:     The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, time_signature, key_signature, parts_count.
+    """
+    time_signature = _sanitize_arg(time_signature)
+    key_signature = _sanitize_arg(key_signature)
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    return _run_script(script, ["init", "--time-signature", time_signature, "--key-signature", key_signature, "--session-id", session_id])
+
+
+@mcp.tool()
+def add_note_to_score(pitch: str, duration: str, part_id: str = "melody", session_id: str = "default") -> str:
+    """Add/append a note, chord, or rest token to the score for a specific part.
+
+    Args:
+        pitch:      Pitch name (e.g. 'C4', 'rest', or a comma-separated chord like 'C4,E4,G4').
+        duration:   Duration of the token (e.g. 'quarter', 'half', 'eighth', 'whole').
+        part_id:    ID of the part/track (e.g. 'melody', 'bassline'). Defaults to 'melody'.
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, added_event, measure_number.
+    """
+    pitch = _sanitize_arg(pitch)
+    duration = _sanitize_arg(duration)
+    part_id = _sanitize_arg(part_id)
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    return _run_script(script, ["add", "--pitch", pitch, "--duration", duration, "--part-id", part_id, "--session-id", session_id])
+
+
+@mcp.tool()
+def transpose_score(semitones: int, session_id: str = "default") -> str:
+    """Transpose all notes/chords and key signatures in the active score up or down by a given number of semitones.
+
+    Args:
+        semitones:  Number of semitones to transpose (e.g. 2 for up a whole step, -3 for down a minor third).
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, transposition, new_key_signature.
+    """
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    return _run_script(script, ["transpose", "--semitones", str(semitones), "--session-id", session_id])
+
+
+@mcp.tool()
+def set_score_tempo(bpm: float, offset: float = 0.0, session_id: str = "default") -> str:
+    """Set or change the tempo (in BPM) at a specific beat offset in the active score.
+
+    Args:
+        bpm:        The tempo in beats per minute (BPM).
+        offset:     The beat offset at which this tempo applies (default 0.0 for start of score).
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, tempo, offset.
+    """
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    return _run_script(script, ["set-tempo", "--bpm", str(bpm), "--offset", str(offset), "--session-id", session_id])
+
+
+@mcp.tool()
+def validate_voice_leading(session_id: str = "default") -> str:
+    """Check the active score for voice-leading violations (parallel fifths/octaves) and range errors.
+
+    Args:
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, violation_status, parallels, range_errors.
+    """
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "check_voice_leading.py"
+    return _run_script(script, ["--session-id", session_id])
+
+
+# ===========================================================================
+# 3. Import / Export & MIDI Analytics Tools
+# ===========================================================================
+
+@mcp.tool()
+def export_score_to_midi(session_id: str = "default") -> str:
+    """Export the active score session to a standard MIDI (.mid) file.
+
+    Args:
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, midi_path.
+    """
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    res_json = _run_script(script, ["export-midi", "--session-id", session_id])
+    try:
+        data = json.loads(res_json)
+        if data.get("status") == "success" and "midi_path" in data:
+            assets_dir = _PROJECT_ROOT / "skills" / "score_construction" / "assets"
+            midi_file = assets_dir / f"score_{session_id}.mid"
+            data["midi_path"] = str(midi_file.resolve())
+            return json.dumps(data, indent=2)
+    except Exception:
+        pass
+    return res_json
+
+
+@mcp.tool()
+def import_midi_to_score(midi_path: str, session_id: str = "default") -> str:
+    """Import an external MIDI file into the active score session.
+
+    Args:
+        midi_path:  Local path to the MIDI file to import.
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, tracks_imported, key_signature, tempo.
+    """
+    session_id = _sanitize_arg(session_id)
+    safe = _safe_resolve_path(midi_path)
+    if safe and Path(safe).is_file():
+        resolved_path = safe
+    else:
+        return json.dumps({"status": "error", "error": f"Invalid or non-existent MIDI file path: {midi_path}"})
+
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    return _run_script(script, ["import-midi", "--midi-path", resolved_path, "--session-id", session_id])
+
+
+@mcp.tool()
+def analyze_midi_file(file_path: str) -> str:
+    """Ingest a raw binary MIDI file and extract track count, tempo, note count, and instruments.
+
+    Args:
+        file_path: Local path to the MIDI file to analyze.
+
+    Returns:
+        JSON with keys: status, track_count, tempo, note_count, instruments.
+    """
+    safe = _safe_resolve_path(file_path)
+    if safe and Path(safe).is_file():
+        resolved_path = safe
+    else:
+        return json.dumps({"status": "error", "error": f"Invalid or non-existent MIDI file path: {file_path}"})
+
+    script = _PROJECT_ROOT / "skills" / "midi_analytics" / "scripts" / "parse_midi_metrics.py"
+    return _run_script(script, ["--file-path", resolved_path])
+
+
+# ===========================================================================
+# 4. Audio Synthesis & Instrument Assignment Tools
+# ===========================================================================
+
+@mcp.tool()
+def list_soundfonts() -> str:
+    """List the available SoundFont (.sf2) files and their descriptions.
+
+    Returns:
+        JSON string containing the list of soundfonts.
+    """
+    return _list_soundfonts()
+
+
+@mcp.tool()
+def list_soundfont_instruments() -> str:
+    """List the available instrument patches inside the General MIDI soundfont (TimGM6mb.sf2).
+
+    Returns:
+        JSON string containing categories and program numbers.
+    """
+    return _list_instruments()
+
+
+@mcp.tool()
+def assign_instrument_to_track(part_id: str, program: int, is_percussion: bool = False, session_id: str = "default") -> str:
+    """Manually assign a specific General MIDI instrument (0-127) to a track/part in the score.
+
+    Args:
+        part_id:       The ID of the part/track (e.g. 'melody', 'part_1').
+        program:       The MIDI program number (0-127) for the instrument.
+        is_percussion: Set to True if this track is unpitched drums/percussion.
+        session_id:    The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, part_id, program, is_percussion.
+    """
+    part_id = _sanitize_arg(part_id)
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    args = ["assign-instrument", "--part-id", part_id, "--program", str(program), "--session-id", session_id]
+    if is_percussion:
+        args.append("--percussion")
+    return _run_script(script, args)
+
+
+@mcp.tool()
+def synthesize_score(tracks: str = "", soundfont: str = "", session_id: str = "default") -> str:
+    """Compile the notes from the score session into a WAV audio file using a SoundFont.
+
+    Args:
+        tracks:     Optional comma-separated list of track IDs or names to play.
+        soundfont:  Optional soundfont filename (e.g. 'TimGM6mb.sf2' or 'SalamanderGrandPiano-V3+20200602.sf2').
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, audio_path, soundfont.
+    """
+    tracks = _sanitize_arg(tracks)
+    soundfont = _sanitize_arg(soundfont)
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "acoustic_audio_synthesis" / "scripts" / "synthesize_score.py"
+    args = ["--session-id", session_id]
+    if tracks:
+        args += ["--tracks", tracks]
+    if soundfont:
+        args += ["--soundfont", soundfont]
+
+    res_json = _run_script(script, args)
+    try:
+        data = json.loads(res_json)
+        if data.get("status") == "success" and "audio_path" in data:
+            assets_dir = _PROJECT_ROOT / "skills" / "acoustic_audio_synthesis" / "assets"
+            wav_file = assets_dir / f"score_{session_id}.wav"
+            data["audio_path"] = str(wav_file.resolve())
+            return json.dumps(data, indent=2)
+    except Exception:
+        pass
+    return res_json
+
+
+# ===========================================================================
+# 5. Visual Notation Rendering Tools
+# ===========================================================================
+
+@mcp.tool()
+def render_notation(tracks: str = "", session_id: str = "default") -> str:
+    """Render the current score state to visual piano roll and notation timeline graphs.
+
+    Args:
+        tracks:     Optional comma-separated list of track IDs or names to render.
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, piano_roll, score_plot, notation_layout, musicxml_path.
+    """
+    tracks = _sanitize_arg(tracks)
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "scripts" / "generate_visuals.py"
+    args = ["--session-id", session_id]
+    if tracks:
+        args += ["--tracks", tracks]
+
+    res_json = _run_script(script, args)
+    try:
+        data = json.loads(res_json)
+        if data.get("status") == "success":
+            assets_dir = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "assets"
+            for key in ["piano_roll", "score_plot", "notation_layout", "musicxml_path"]:
+                if key in data and data[key]:
+                    filename = Path(data[key]).name
+                    data[key] = str((assets_dir / filename).resolve())
+            return json.dumps(data, indent=2)
+    except Exception:
+        pass
+    return res_json
 
 
 # ---------------------------------------------------------------------------

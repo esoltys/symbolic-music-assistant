@@ -329,12 +329,40 @@ You can also use the [ADK](https://adk.dev/) CLI directly with `uv run adk`.
 
 ### MCP Server
 
-The project includes an MCP server (`mcp_server.py`) that exposes the three stateless music theory tools over the stdio transport. This allows external MCP clients—such as Claude Desktop or other ADK agents—to call the music theory engine without running the full assistant.
+The project includes an MCP server (`mcp_server.py`) that exposes the full suite of music theory, score construction, MIDI analytics, notation rendering, and audio synthesis tools over the stdio transport. This allows external MCP clients—such as Claude Desktop or other ADK agents—to call the music engine directly.
 
 **Run the server:**
 ```bash
 uv run python mcp_server.py
 ```
+
+**Adding to Claude Desktop:**
+
+You can integrate Cadence directly into Claude Desktop. Open your Claude Desktop configuration file:
+* **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+* **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+Add the following entry to the `mcpServers` block:
+
+```json
+{
+  "mcpServers": {
+    "cadence-music-assistant": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "<absolute-path-to-cadence-music-assistant>",
+        "run",
+        "python",
+        "mcp_server.py"
+      ]
+    }
+  }
+}
+```
+
+*Replace `<absolute-path-to-cadence-music-assistant>` with the actual absolute path to this project directory on your local machine (using double backslashes `\\` on Windows).*
+
 
 ### 🛠️ Project Management
 
