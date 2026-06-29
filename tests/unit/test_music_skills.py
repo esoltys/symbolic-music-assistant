@@ -255,44 +255,51 @@ def test_voice_leading():
 
 def test_midi_attachments():
     import asyncio
-    import base64
-    from unittest.mock import MagicMock
+    from unittest.mock import MagicMock, AsyncMock
     from agents.music_assistant.agent import analyze_midi_file, import_midi_to_score, detect_key
     
     sample_midi_path = PROJECT_ROOT / "skills" / "midi_analytics" / "assets" / "sample.mid"
     assert sample_midi_path.is_file()
     sample_midi_bytes = sample_midi_path.read_bytes()
-    sample_midi_b64 = base64.b64encode(sample_midi_bytes).decode("utf-8")
     
-    attachment = {
-        "fileName": "sample.mid",
-        "mimeType": "audio/midi",
-        "base64Data": sample_midi_b64
-    }
+    mock_part = MagicMock()
+    mock_part.inline_data = MagicMock()
+    mock_part.inline_data.mime_type = "audio/midi"
+    mock_part.inline_data.data = sample_midi_bytes
+    mock_part.file_data = None
 
     mock_ctx = MagicMock()
     mock_ctx.session.id = "test_attachment_sess"
+    mock_ctx.user_content.parts = [mock_part]
+    mock_ctx.session.events = []
+    mock_ctx.list_artifacts = AsyncMock(return_value=[])
     
     # 1. Test analyze_midi_file with attachment
-    res = asyncio.run(analyze_midi_file(tool_context=mock_ctx, file_attachment=attachment))
+    res = asyncio.run(analyze_midi_file(tool_context=mock_ctx))
     data = json.loads(res)
     assert data["status"] == "success"
     assert data["track_count"] == 1
     assert data["note_count"] == 256
     
     # 2. Test detect_key with attachment
-    res_key = asyncio.run(detect_key(tool_context=mock_ctx, file_attachment=attachment))
+    res_key = asyncio.run(detect_key(tool_context=mock_ctx))
     data_key = json.loads(res_key)
     assert data_key["status"] == "success"
     assert "detected_key" in data_key
     
     # 3. Test import_midi_to_score with attachment
-    res_import = asyncio.run(import_midi_to_score(tool_context=mock_ctx, file_attachment=attachment))
+    res_import = asyncio.run(import_midi_to_score(tool_context=mock_ctx))
     data_import = json.loads(res_import)
     assert data_import["status"] == "success"
     
     # 4. Test missing attachment error
-    res_err = asyncio.run(analyze_midi_file(tool_context=mock_ctx, file_attachment=None))
+    mock_ctx_empty = MagicMock()
+    mock_ctx_empty.session.id = "test_empty_sess"
+    mock_ctx_empty.user_content = None
+    mock_ctx_empty.session.events = []
+    mock_ctx_empty.list_artifacts = AsyncMock(return_value=[])
+    
+    res_err = asyncio.run(analyze_midi_file(tool_context=mock_ctx_empty))
     data_err = json.loads(res_err)
     assert data_err["status"] == "error"
     

@@ -97,18 +97,35 @@ async def run_evaluation():
         print(f"Running Scenario {idx+1}: {sc['name']}")
         print(f"==================================================")
         
-        query = f"Analyze the MIDI file at {sc['file_path']} to extract its metrics summary."
+        query = "Analyze the attached MIDI file to extract its metrics summary."
         print(f"Query: '{query}'")
+        
+        # Read the file and base64-encode it
+        midi_bytes = (PROJECT_ROOT / sc["file_path"]).read_bytes()
+        import base64
+        midi_b64 = base64.b64encode(midi_bytes).decode("utf-8")
+        
+        expected_attachment = {
+            "fileName": Path(sc["file_path"]).name,
+            "mimeType": "audio/midi",
+            "base64Data": midi_b64
+        }
         
         # Define expected tool call
         expected_tool_call = types.FunctionCall(
             name="analyze_midi_file",
-            args={"file_path": sc["file_path"]}
+            args={}
         )
         
         expected_invocation = Invocation(
             invocation_id=f"inv_{idx}",
-            user_content=types.Content(role="user", parts=[types.Part.from_text(text=query)]),
+            user_content=types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_text(text=query),
+                    types.Part.from_bytes(data=midi_bytes, mime_type="audio/midi")
+                ]
+            ),
             final_response=None,
             intermediate_data=IntermediateData(
                 tool_uses=[expected_tool_call]
@@ -119,7 +136,10 @@ async def run_evaluation():
         session_id = f"eval-session-{idx}"
         new_message = types.Content(
             role="user",
-            parts=[types.Part(text=query)]
+            parts=[
+                types.Part(text=query),
+                types.Part.from_bytes(data=midi_bytes, mime_type="audio/midi")
+            ]
         )
         
         # Run natively using async generator

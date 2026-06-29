@@ -268,12 +268,113 @@ async def export_score_to_midi(tool_context: ToolContext) -> str:
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute export-midi script: {e}"})
 
-async def import_midi_to_score(tool_context: ToolContext, file_attachment: dict) -> str:
-    """Imports an external MIDI file attachment into the active score state, overwriting the current score.
+async def _extract_attachment_from_context(tool_context: ToolContext) -> dict | None:
+    """Helper to extract an attachment from tool_context (current turn, history, or artifacts)
+    and return it as a structured file_attachment dictionary.
+    """
+    if not tool_context:
+        return None
+
+    def get_field(obj, field_name, default=None):
+        if obj is None:
+            return default
+        if isinstance(obj, dict):
+            return obj.get(field_name, default)
+        return getattr(obj, field_name, default)
+
+    def extract_from_part(part) -> dict | None:
+        if not part:
+            return None
+        
+        # 1. Check inline data
+        inline_data = get_field(part, "inline_data")
+        if inline_data:
+            data = get_field(inline_data, "data")
+            mime = get_field(inline_data, "mime_type") or "audio/midi"
+            if data:
+                if isinstance(data, str):
+                    return {"fileName": "attachment.mid", "mimeType": mime, "base64Data": data}
+                elif isinstance(data, bytes):
+                    import base64
+                    b64 = base64.b64encode(data).decode("utf-8")
+                    return {"fileName": "attachment.mid", "mimeType": mime, "base64Data": b64}
+                    
+        # 2. Check uploaded file URIs
+        file_data = get_field(part, "file_data")
+        if file_data:
+            mime = (get_field(file_data, "mime_type") or "").lower()
+            file_uri = get_field(file_data, "file_uri")
+            midi_mime_types = {"audio/midi", "audio/mid", "audio/x-midi", "audio/sp-midi"}
+            if not mime or mime in midi_mime_types or "octet-stream" in mime or "midi" in mime:
+                try:
+                    from google.genai import Client
+                    client = Client()
+                    raw_data = client.files.download(file=file_uri)
+                    if raw_data:
+                        if isinstance(raw_data, bytes):
+                            import base64
+                            raw_data = base64.b64encode(raw_data).decode("utf-8")
+                        filename = Path(file_uri).name if file_uri else "attachment.mid"
+                        return {"fileName": filename, "mimeType": mime or "audio/midi", "base64Data": raw_data}
+                except Exception as e:
+                    print(f"Failed to download attached file from file_uri: {e}")
+        return None
+
+    def extract_from_content(content) -> dict | None:
+        if not content:
+            return None
+        parts = get_field(content, "parts")
+        if not parts:
+            return None
+            
+        for part in parts:
+            res = extract_from_part(part)
+            if res:
+                return res
+        return None
+
+    # 1. Check current turn's user content
+    if tool_context.user_content:
+        res = extract_from_content(tool_context.user_content)
+        if res:
+            return res
+        
+    # 2. Check session history in reverse order
+    if tool_context.session:
+        events = get_field(tool_context.session, "events") or []
+        for event in reversed(events):
+            author = get_field(event, "author")
+            if author == "user":
+                content = get_field(event, "content")
+                if content:
+                    res = extract_from_content(content)
+                    if res:
+                        return res
+
+    # 3. Check artifacts registered in the session
+    try:
+        artifact_keys = await tool_context.list_artifacts()
+        midi_keys = [k for k in artifact_keys if k.lower().endswith((".mid", ".midi"))]
+        if not midi_keys:
+            midi_keys = artifact_keys
+            
+        for key in reversed(midi_keys):
+            part = await tool_context.load_artifact(filename=key)
+            if part:
+                res = extract_from_part(part)
+                if res:
+                    res["fileName"] = key
+                    return res
+    except Exception as e:
+        print(f"Failed to load or list artifacts: {e}")
+        
+    return None
+
+async def import_midi_to_score(tool_context: ToolContext) -> str:
+    """Imports an external MIDI file attachment from the chat into the active score state, overwriting the current score.
 
     Args:
-        tool_context: The tool execution context containing session data.
-        file_attachment: A structured object containing {"fileName": "string", "mimeType": "string", "base64Data": "string"}.
+        tool_context: The tool execution context containing session data and attachments.
 
     Returns:
         A JSON string containing the status, imported time/key signature, and part count.
@@ -281,8 +382,9 @@ async def import_midi_to_score(tool_context: ToolContext, file_attachment: dict)
     script_path = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
     session_id = tool_context.session.id
 
+    file_attachment = await _extract_attachment_from_context(tool_context)
     if not file_attachment or not isinstance(file_attachment, dict):
-        return json.dumps({"status": "error", "error": "Invalid or missing file_attachment argument."})
+        return json.dumps({"status": "error", "error": "No MIDI file attachment found in the chat."})
         
     b64_str = file_attachment.get("base64Data") or file_attachment.get("base64_data")
     if not b64_str:
@@ -314,12 +416,11 @@ async def import_midi_to_score(tool_context: ToolContext, file_attachment: dict)
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute import-midi script: {e}"})
 
-async def analyze_midi_file(tool_context: ToolContext, file_attachment: dict) -> str:
-    """Ingests a raw binary MIDI file attachment and extracts track count, global tempo, note count, and detailed instrument listing.
+async def analyze_midi_file(tool_context: ToolContext) -> str:
+    """Ingests a raw binary MIDI file attachment from the chat and extracts track count, global tempo, note count, and detailed instrument listing.
 
     Args:
-        tool_context: The tool execution context containing session data.
-        file_attachment: A structured object containing {"fileName": "string", "mimeType": "string", "base64Data": "string"}.
+        tool_context: The tool execution context containing session data and attachments.
 
     Returns:
         A JSON string containing the status, track_count, tempo, note_count, list of instruments (names, programs, note counts), or error details.
@@ -327,8 +428,9 @@ async def analyze_midi_file(tool_context: ToolContext, file_attachment: dict) ->
     script_path = _PROJECT_ROOT / "skills" / "midi_analytics" / "scripts" / "parse_midi_metrics.py"
     session_id = tool_context.session.id
 
+    file_attachment = await _extract_attachment_from_context(tool_context)
     if not file_attachment or not isinstance(file_attachment, dict):
-        return json.dumps({"status": "error", "error": "Invalid or missing file_attachment argument."})
+        return json.dumps({"status": "error", "error": "No MIDI file attachment found in the chat."})
         
     b64_str = file_attachment.get("base64Data") or file_attachment.get("base64_data")
     if not b64_str:
@@ -360,12 +462,11 @@ async def analyze_midi_file(tool_context: ToolContext, file_attachment: dict) ->
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute midi parser script: {e}"})
 
-async def detect_key(tool_context: ToolContext, file_attachment: dict = None) -> str:
-    """Analyzes the active score session or an external MIDI file attachment to detect the musical key and confidence.
+async def detect_key(tool_context: ToolContext) -> str:
+    """Analyzes the active score session or an external MIDI file attachment in the chat to detect the musical key and confidence.
 
     Args:
         tool_context: The tool execution context containing session data.
-        file_attachment: Optional structured object containing {"fileName": "string", "mimeType": "string", "base64Data": "string"}.
 
     Returns:
         A JSON string containing the status, detected key, confidence score, and alternative keys.
@@ -373,25 +474,22 @@ async def detect_key(tool_context: ToolContext, file_attachment: dict = None) ->
     script_path = _PROJECT_ROOT / "skills" / "music_theory_query" / "scripts" / "detect_key.py"
     session_id = tool_context.session.id
 
+    file_attachment = await _extract_attachment_from_context(tool_context)
+
     resolved_path = ""
     if file_attachment:
-        if not isinstance(file_attachment, dict):
-            return json.dumps({"status": "error", "error": "Invalid file_attachment argument."})
         b64_str = file_attachment.get("base64Data") or file_attachment.get("base64_data")
-        if not b64_str:
-            return json.dumps({"status": "error", "error": "Missing base64Data inside file_attachment."})
-
-        try:
-            content = _safe_decode_base64(b64_str)
-            if not content.startswith(b"MThd"):
-                return json.dumps({"status": "error", "error": "Invalid MIDI file: decoded content does not start with MThd header."})
-            assets_dir = _PROJECT_ROOT / "skills" / "music_theory_query" / "assets"
-            assets_dir.mkdir(parents=True, exist_ok=True)
-            uploaded_path = assets_dir / f"uploaded_{session_id}.mid"
-            uploaded_path.write_bytes(content)
-            resolved_path = str(uploaded_path.resolve())
-        except Exception as e:
-            return json.dumps({"status": "error", "error": f"Failed to decode base64 MIDI content: {e}"})
+        if b64_str:
+            try:
+                content = _safe_decode_base64(b64_str)
+                if content.startswith(b"MThd"):
+                    assets_dir = _PROJECT_ROOT / "skills" / "music_theory_query" / "assets"
+                    assets_dir.mkdir(parents=True, exist_ok=True)
+                    uploaded_path = assets_dir / f"uploaded_{session_id}.mid"
+                    uploaded_path.write_bytes(content)
+                    resolved_path = str(uploaded_path.resolve())
+            except Exception:
+                pass
 
     python_exe = sys.executable or "python"
     cmd = [python_exe, str(script_path)]
@@ -835,7 +933,7 @@ root_agent = Agent(
     ),
     instruction=(
         "You are Cadence, an AI music assistant designed to help with music theory, chords, scores, and MIDI files.\n"
-        "When a user attaches or uploads any file (including generic binary attachments or files with MIME types like application/octet-stream) and requests a music task (such as import, analyze, play, or key detection), you must assume it is the MIDI file they want to process. You must call the appropriate tool (such as analyze_midi_file, import_midi_to_score, or detect_key) immediately on the very first turn with the path parameter (file_path or midi_path) left empty or omitted. Do not ask the user to attach a MIDI file if they have already uploaded a file in their message.\n"
+        "When a user attaches or uploads any file (including generic binary attachments or files with MIME types like application/octet-stream) and requests a music task (such as import, analyze, play, or key detection), you must assume it is the MIDI file they want to process. You must call the appropriate tool (such as analyze_midi_file, import_midi_to_score, or detect_key) immediately on the very first turn. Under standard ADK tool integration, the chat attachment's media data will be mapped directly to the tool's structured file_attachment parameter. Do not ask the user to attach a MIDI file if they have already uploaded a file in their message.\n"
         "Use the evaluate_interval tool to compute pitch distance and interval names.\n"
         "Use the list_scale_pitches tool to generate the notes/pitches of a specific scale or mode (major, minor, dorian, phrygian, lydian, mixolydian, locrian).\n"
         "Use the analyze_chord tool to identify a chord's common name and optionally perform Roman numeral analysis in a given key.\n"

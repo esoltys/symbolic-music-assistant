@@ -366,8 +366,15 @@ Add the following entry to the `mcpServers` block:
 
 *Replace `<absolute-path-to-cadence-music-assistant>` with the actual absolute path to this project directory on your local machine (using double backslashes `\\` on Windows).*
 
-* **File Access Permissions:** By default, Cadence allows access to files inside the project root, the current working directory, and non-hidden directories inside your user home folder (such as `Downloads` or `Claude`). To grant access to folders outside these locations, define them in the optional `CADENCE_ALLOWED_PATHS` environment variable (separated by semicolons on Windows, or colons on macOS/Linux).
-* **Headless/Sandbox File Ingestion:** If the client (like Claude Desktop) is running in a sandbox, container, or VM and cannot directly share a local file path with the host system, the tools `analyze_midi_file`, `detect_key`, and `import_midi_to_score` support a `file_content_base64` parameter. The client can read the file content locally and pass it as a base64-encoded string, bypassing filesystem boundaries.
+* **Attachment-Driven Ingestion:** To ensure maximum sandboxing, safety, and compatibility with clients running in isolated container/VM environments, the tools `analyze_midi_file`, `detect_key`, and `import_midi_to_score` do not accept raw host-level file paths. Instead, they accept a structured `file_attachment` parameter mapping:
+  ```json
+  {
+    "fileName": "string",
+    "mimeType": "string",
+    "base64Data": "string"
+  }
+  ```
+  This allows host clients (like Claude Desktop or the ADK runner) to feed chat attachments directly into the tool context as clean base64 data.
 * **Exposed MCP Resources:** To retrieve generated scores, rendering plots, and synthesized audio files directly via the MCP protocol, the server exposes the following dynamic resource templates (replacing `{session_id}` with the unique score session ID, e.g. `default`):
   - `music://scores/{session_id}/score.mid` (MIME: `audio/midi`) - The exported MIDI score.
   - `music://scores/{session_id}/score.musicxml` (MIME: `application/xml`) - The MusicXML sheet music.
