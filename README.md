@@ -1,7 +1,7 @@
-# 🎵 Symbolic Music Assistant
+# 🎵 Cadence AI Music Assistant
 
 > **Kaggle Capstone — Agents for Good track**  
-> "AI Agents: Intensive Vibe Coding Course" with Google x Kaggle
+> AI Agents: Intensive Vibe Coding Course with Google
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/) [![google-adk](https://img.shields.io/badge/ADK-2.3%2B-orange)](https://adk.dev/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -13,21 +13,21 @@
 
 ## 🎯 The Problem
 
-Learning and creating music has always had a gap between the idea in your head and getting it out into the world. That gap shows up in a few recurring ways:
+Musicians and students have a cadence to their creative work — a rhythm of thinking, experimenting, and refining. That cadence breaks every time they have to stop and switch tools.
 
-- **Theory questions interrupt the creative flow.** "What chord is this?" "What scale fits here?" "What interval is that?" — questions that should take seconds instead pull you to a textbook, a search engine, or a YouTube video.
+- **Theory questions interrupt the flow.** "What chord is this?" "What scale fits here?" "What interval is that?" — questions that should take seconds instead mean opening a textbook, searching YouTube, or loading a separate app.
 - **The gap between idea and audio is wide.** Turning a musical idea into something you can actually *hear* means setting up a DAW, finding a soundfont, configuring a MIDI editor — a barrier that stops many ideas before they start.
-- **Tools are completely siloed.** You analyze theory in one app, compose in another, render notation in a third, and synthesize audio in a fourth. Nothing shares context, so every step means starting over.
+- **Nothing shares context.** You analyze theory in one app, compose in another, render notation in a third, and synthesize audio in a fourth. Every tool switch means starting over with no memory of what came before.
 
-For students in formal music theory courses, there's an additional pain: writing four-part harmony exercises by hand means manually scanning for voice-leading errors (parallel fifths, octaves, range violations) — tedious, error-prone work that eats time that could be spent actually learning.
+For students in formal music theory courses, there's an additional friction: writing four-part harmony exercises by hand means manually scanning for voice-leading errors (parallel fifths, octaves, range violations) — tedious work that eats time that could be spent actually learning.
 
-AI agents are uniquely positioned to solve this because music tasks are inherently **multi-step and stateful**: building a score, asking a theory question, visualizing it, and hearing it are steps in a single creative session — not independent queries. A conversational agent can hold that context and orchestrate all the tools as one coherent workflow.
+AI agents are uniquely positioned to solve this because music tasks are inherently **multi-step and stateful**. A conversational agent can hold context across an entire creative session — no tool switching, no lost state, no broken cadence.
 
 ---
 
 ## 💡 The Solution
 
-The **Symbolic Music Assistant** is a conversational AI agent that acts as an intelligent music co-pilot. Through natural language, it lets you:
+**Cadence** is a conversational AI agent that keeps musicians and students in their creative flow. Ask a theory question, build a score, visualize it, and hear it — all in one conversation, with no tool switching.
 
 - Ask theory questions — intervals, chords, scales, key detection — and get instant, accurate answers
 - Build multi-part musical scores note by note, or import existing MIDI files
@@ -35,7 +35,7 @@ The **Symbolic Music Assistant** is a conversational AI agent that acts as an in
 - Visualize your score as a piano roll or export MusicXML for MuseScore
 - For theory students: validate voice-leading rules (parallel fifths, octaves, vocal ranges) automatically
 
-**Why agents?** Because the tasks are multi-step and contextual. When a user says _"I have a melody idea — let me build it, check what key it suggests, visualize it, then hear it"_, they're describing a **pipeline of 4–5 tool calls** that must share session state. An agent with working memory and tool-use is the natural fit — no static pipeline could handle the open-ended, conversational nature of real creative work.
+**Why agents?** Because music tasks are multi-step and contextual — and maintaining cadence means never losing the thread. When a user says _"I have a melody idea — let me build it, check what key it suggests, visualize it, then hear it"_, they're describing a **pipeline of 4–5 tool calls** that must share session state. A conversational agent with working memory is the only tool that can follow you through that without breaking your flow.
 
 
 ---

@@ -46,8 +46,8 @@ app: FastAPI = get_fast_api_app(
     session_service_uri=session_service_uri,
     otel_to_cloud=True,
 )
-app.title = "symbolic-music-assistant"
-app.description = "API for interacting with the Agent symbolic-music-assistant"
+app.title = "cadence"
+app.description = "API for interacting with Cadence, the AI music assistant"
 
 
 @app.post("/feedback")

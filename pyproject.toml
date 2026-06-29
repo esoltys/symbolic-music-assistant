@@ -1,7 +1,7 @@
 [project]
-name = "symbolic-music-assistant"
+name = "cadence"
 version = "0.1.0"
-description = "A symbolic music assistant using google-adk, music21, and pretty_midi"
+description = "Cadence — an AI music assistant using google-adk, music21, and pretty_midi"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

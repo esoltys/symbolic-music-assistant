@@ -951,7 +951,7 @@ root_agent = Agent(
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     instruction=(
-        "You are a symbolic music assistant designed to help with music theory, chords, scores, and MIDI files.\n"
+        "You are Cadence, an AI music assistant designed to help with music theory, chords, scores, and MIDI files.\n"
         "When a user attaches or uploads any file (including generic binary attachments or files with MIME types like application/octet-stream) and requests a music task (such as import, analyze, play, or key detection), you must assume it is the MIDI file they want to process. You must call the appropriate tool (such as analyze_midi_file, import_midi_to_score, or detect_key) immediately on the very first turn with the path parameter (file_path or midi_path) left empty or omitted. Do not ask the user to attach a MIDI file if they have already uploaded a file in their message.\n"
         "Use the evaluate_interval tool to compute pitch distance and interval names.\n"
         "Use the list_scale_pitches tool to generate the notes/pitches of a specific scale or mode (major, minor, dorian, phrygian, lydian, mixolydian, locrian).\n"

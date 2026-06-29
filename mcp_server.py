@@ -1,4 +1,4 @@
-"""MCP server for the Symbolic Music Assistant — Music Theory Tools.
+"""MCP server for Cadence — Music Theory Tools.
 
 Exposes the three stateless music-theory tools as a Model Context Protocol (MCP)
 server so that external MCP clients (e.g. Claude Desktop, other ADK agents, or
@@ -61,9 +61,9 @@ def _sanitize_arg(value: str, max_len: int = _MAX_ARG_LEN) -> str:
 # FastMCP server definition
 # ---------------------------------------------------------------------------
 mcp = FastMCP(
-    name="symbolic-music-theory",
+    name="cadence-music-theory",
     instructions=(
-        "A music theory MCP server for the Symbolic Music Assistant. "
+        "A music theory MCP server for Cadence, the AI music assistant. "
         "Provides three stateless tools: evaluate_interval, list_scale_pitches, "
         "and analyze_chord. All tools use music21 under the hood."
     ),
