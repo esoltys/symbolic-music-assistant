@@ -18,27 +18,28 @@ _MAX_ARG_LEN = 256
 
 
 def _safe_resolve_path(user_path: str) -> str | None:
-    """Resolve a user-supplied file path and verify it lies inside the project root.
+    """Resolve a user-supplied file path and verify it lies within allowed directories.
 
-    Prevents directory traversal attacks where an LLM or user could supply a
-    crafted path like '../../etc/passwd' to read arbitrary files on the host.
-
-    Args:
-        user_path: The raw path string provided by the LLM or user.
-
-    Returns:
-        The resolved absolute path string if it is safe, or None if the
-        resolved path escapes the project root.
+    Prevents directory traversal attacks by ensuring files reside in the project root,
+    the Claude Desktop user files directory, or the user's Downloads directory.
     """
     if not user_path:
         return None
     try:
         resolved = Path(user_path).resolve()
-        # Ensure the resolved path is inside the project root
-        resolved.relative_to(_PROJECT_ROOT)
-        return str(resolved)
-    except (ValueError, OSError):
-        # ValueError: path escapes root. OSError: invalid path on this OS.
+        allowed_roots = [
+            _PROJECT_ROOT,
+            Path.home() / "Claude",
+            Path.home() / "Downloads",
+        ]
+        for root in allowed_roots:
+            try:
+                resolved.relative_to(root)
+                return str(resolved)
+            except ValueError:
+                continue
+        return None
+    except OSError:
         return None
 
 

@@ -32,18 +32,28 @@ _MAX_ARG_LEN = 256
 
 
 def _safe_resolve_path(user_path: str) -> str | None:
-    """Resolve a user-supplied file path and verify it lies inside the project root.
+    """Resolve a user-supplied file path and verify it lies within allowed directories.
 
-    Prevents directory traversal: a crafted path like '../../etc/passwd' will
-    fail the relative_to() check and return None.
+    Prevents directory traversal attacks by ensuring files reside in the project root,
+    the Claude Desktop user files directory, or the user's Downloads directory.
     """
     if not user_path:
         return None
     try:
         resolved = Path(user_path).resolve()
-        resolved.relative_to(_PROJECT_ROOT)
-        return str(resolved)
-    except (ValueError, OSError):
+        allowed_roots = [
+            _PROJECT_ROOT,
+            Path.home() / "Claude",
+            Path.home() / "Downloads",
+        ]
+        for root in allowed_roots:
+            try:
+                resolved.relative_to(root)
+                return str(resolved)
+            except ValueError:
+                continue
+        return None
+    except OSError:
         return None
 
 
