@@ -32,21 +32,7 @@ _PROJECT_ROOT = Path(__file__).parent.resolve()
 _MAX_ARG_LEN = 256
 
 
-def _safe_resolve_path(user_path: str) -> str | None:
-    """Resolve a user-supplied file path and verify it exists as a file.
 
-    For better integration with VS Code (Cline/Roo Code) and Claude Desktop attachments
-    which can reside in system temp folders, we allow any valid file path on the system.
-    """
-    if not user_path:
-        return None
-    try:
-        resolved = Path(user_path).resolve()
-        if resolved.is_file():
-            return str(resolved)
-        return None
-    except Exception:
-        return None
 
 
 def _safe_decode_base64(b64_str: str) -> bytes:
@@ -170,48 +156,38 @@ def analyze_chord(pitches: str, key_signature: str = "") -> str:
 
 
 @mcp.tool()
-def detect_key(midi_path: str = "", file_content_base64: str = "", session_id: str = "default") -> str:
-    """Estimate/detect the musical key signature of the active score or a MIDI file.
-
-    You can provide either a local `midi_path` or the file's raw content as a base64-encoded string `file_content_base64`.
+def detect_key(file_attachment: dict = None, session_id: str = "default") -> str:
+    """Estimate/detect the musical key signature of the active score or a MIDI file attachment.
 
     Args:
-        midi_path:           Optional local path to a MIDI file to analyze instead of the active score.
-        file_content_base64: Optional base64-encoded content of the MIDI file.
-        session_id:          The unique score session ID. Defaults to 'default'.
+        file_attachment: Optional structured object containing {"fileName": "string", "mimeType": "string", "base64Data": "string"}.
+        session_id:      The unique score session ID. Defaults to 'default'.
 
     Returns:
         JSON with keys: status, detected_key, confidence, relative_keys.
     """
-    import base64
     session_id = _sanitize_arg(session_id)
     resolved_path = ""
     
-    # 1. Try parsing base64 content
-    if file_content_base64:
+    if file_attachment:
+        if not isinstance(file_attachment, dict):
+            return json.dumps({"status": "error", "error": "Invalid file_attachment argument."})
+        b64_str = file_attachment.get("base64Data") or file_attachment.get("base64_data")
+        if not b64_str:
+            return json.dumps({"status": "error", "error": "Missing base64Data inside file_attachment."})
+            
         try:
-            content = _safe_decode_base64(file_content_base64)
-            if content.startswith(b"MThd"):
-                temp_dir = _PROJECT_ROOT / "skills" / "music_theory_query" / "assets"
-                temp_dir.mkdir(parents=True, exist_ok=True)
-                temp_file = temp_dir / f"temp_{session_id}.mid"
-                temp_file.write_bytes(content)
-                resolved_path = str(temp_file.resolve())
-        except Exception:
-            pass
+            content = _safe_decode_base64(b64_str)
+            if not content.startswith(b"MThd"):
+                return json.dumps({"status": "error", "error": "Invalid MIDI file: decoded content does not start with MThd header."})
             
-    # 2. Fallback to file path if base64 failed or wasn't provided
-    if not resolved_path and midi_path:
-        safe = _safe_resolve_path(midi_path)
-        if safe and Path(safe).is_file():
-            resolved_path = safe
-            
-    # 3. If still not resolved and midi_path/base64 was provided (meaning it failed)
-    if not resolved_path and (file_content_base64 or midi_path):
-        if file_content_base64:
-            return json.dumps({"status": "error", "error": "Invalid MIDI file: decoded content does not start with MThd header, and no valid local file path was found."})
-        else:
-            return json.dumps({"status": "error", "error": f"Invalid or non-existent MIDI file path: {midi_path}"})
+            temp_dir = _PROJECT_ROOT / "skills" / "music_theory_query" / "assets"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            temp_file = temp_dir / f"temp_{session_id}.mid"
+            temp_file.write_bytes(content)
+            resolved_path = str(temp_file.resolve())
+        except Exception as e:
+            return json.dumps({"status": "error", "error": f"Failed to decode base64 MIDI content: {e}"})
 
     script = _PROJECT_ROOT / "skills" / "music_theory_query" / "scripts" / "detect_key.py"
     args = []
@@ -345,98 +321,70 @@ def export_score_to_midi(session_id: str = "default") -> str:
 
 
 @mcp.tool()
-def import_midi_to_score(midi_path: str = "", file_content_base64: str = "", session_id: str = "default") -> str:
-    """Import an external MIDI file into the active score session.
-
-    You can provide either a local `midi_path` or the file's raw content as a base64-encoded string `file_content_base64`.
+def import_midi_to_score(file_attachment: dict, session_id: str = "default") -> str:
+    """Import an external MIDI file attachment into the active score session.
 
     Args:
-        midi_path:           Local path to the MIDI file to import.
-        file_content_base64: Optional base64-encoded content of the MIDI file.
-        session_id:          The unique score session ID. Defaults to 'default'.
+        file_attachment: A structured object containing {"fileName": "string", "mimeType": "string", "base64Data": "string"}.
+        session_id:      The unique score session ID. Defaults to 'default'.
 
     Returns:
         JSON with keys: status, tracks_imported, key_signature, tempo.
     """
-    import base64
     session_id = _sanitize_arg(session_id)
-    resolved_path = ""
-    
-    # 1. Try parsing base64 content
-    if file_content_base64:
-        try:
-            content = _safe_decode_base64(file_content_base64)
-            if content.startswith(b"MThd"):
-                temp_dir = _PROJECT_ROOT / "skills" / "score_construction" / "assets"
-                temp_dir.mkdir(parents=True, exist_ok=True)
-                temp_file = temp_dir / f"temp_{session_id}.mid"
-                temp_file.write_bytes(content)
-                resolved_path = str(temp_file.resolve())
-        except Exception:
-            pass
-            
-    # 2. Fallback to file path if base64 failed or wasn't provided
-    if not resolved_path and midi_path:
-        safe = _safe_resolve_path(midi_path)
-        if safe and Path(safe).is_file():
-            resolved_path = safe
-            
-    # 3. If still not resolved, return the detailed error
-    if not resolved_path:
-        if file_content_base64:
-            return json.dumps({"status": "error", "error": "Invalid MIDI file: decoded content does not start with MThd header, and no valid local file path was found."})
-        elif midi_path:
-            return json.dumps({"status": "error", "error": f"Invalid or non-existent MIDI file path: {midi_path}"})
-        else:
-            return json.dumps({"status": "error", "error": "Either midi_path or file_content_base64 must be provided."})
+    if not file_attachment or not isinstance(file_attachment, dict):
+        return json.dumps({"status": "error", "error": "Invalid or missing file_attachment argument."})
+        
+    b64_str = file_attachment.get("base64Data") or file_attachment.get("base64_data")
+    if not b64_str:
+        return json.dumps({"status": "error", "error": "Missing base64Data inside file_attachment."})
+        
+    try:
+        content = _safe_decode_base64(b64_str)
+        if not content.startswith(b"MThd"):
+            return json.dumps({"status": "error", "error": "Invalid MIDI file: decoded content does not start with MThd header."})
+        
+        temp_dir = _PROJECT_ROOT / "skills" / "score_construction" / "assets"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_file = temp_dir / f"temp_{session_id}.mid"
+        temp_file.write_bytes(content)
+        resolved_path = str(temp_file.resolve())
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to decode base64 MIDI content: {e}"})
 
     script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
     return _run_script(script, ["import-midi", "--midi-path", resolved_path, "--session-id", session_id])
 
 
 @mcp.tool()
-def analyze_midi_file(file_path: str = "", file_content_base64: str = "") -> str:
-    """Ingest a raw binary MIDI file and extract track count, tempo, note count, and instruments.
-
-    You can provide either a local `file_path` or the file's raw content as a base64-encoded string `file_content_base64`.
+def analyze_midi_file(file_attachment: dict) -> str:
+    """Ingest a raw binary MIDI file attachment and extract track count, tempo, note count, and instruments.
 
     Args:
-        file_path:           Local path to the MIDI file to analyze.
-        file_content_base64: Optional base64-encoded content of the MIDI file.
+        file_attachment: A structured object containing {"fileName": "string", "mimeType": "string", "base64Data": "string"}.
 
     Returns:
         JSON with keys: status, track_count, tempo, note_count, instruments.
     """
-    import base64
-    resolved_path = ""
-    
-    # 1. Try parsing base64 content
-    if file_content_base64:
-        try:
-            content = _safe_decode_base64(file_content_base64)
-            if content.startswith(b"MThd"):
-                temp_dir = _PROJECT_ROOT / "skills" / "midi_analytics" / "assets"
-                temp_dir.mkdir(parents=True, exist_ok=True)
-                temp_file = temp_dir / "temp_upload.mid"
-                temp_file.write_bytes(content)
-                resolved_path = str(temp_file.resolve())
-        except Exception:
-            pass
-            
-    # 2. Fallback to file path if base64 failed or wasn't provided
-    if not resolved_path and file_path:
-        safe = _safe_resolve_path(file_path)
-        if safe and Path(safe).is_file():
-            resolved_path = safe
-            
-    # 3. If still not resolved, return the detailed error
-    if not resolved_path:
-        if file_content_base64:
-            return json.dumps({"status": "error", "error": "Invalid MIDI file: decoded content does not start with MThd header, and no valid local file path was found."})
-        elif file_path:
-            return json.dumps({"status": "error", "error": f"Invalid or non-existent MIDI file path: {file_path}"})
-        else:
-            return json.dumps({"status": "error", "error": "Either file_path or file_content_base64 must be provided."})
+    if not file_attachment or not isinstance(file_attachment, dict):
+        return json.dumps({"status": "error", "error": "Invalid or missing file_attachment argument."})
+        
+    b64_str = file_attachment.get("base64Data") or file_attachment.get("base64_data")
+    if not b64_str:
+        return json.dumps({"status": "error", "error": "Missing base64Data inside file_attachment."})
+        
+    try:
+        content = _safe_decode_base64(b64_str)
+        if not content.startswith(b"MThd"):
+            return json.dumps({"status": "error", "error": "Invalid MIDI file: decoded content does not start with MThd header."})
+        
+        temp_dir = _PROJECT_ROOT / "skills" / "midi_analytics" / "assets"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_file = temp_dir / "temp_upload.mid"
+        temp_file.write_bytes(content)
+        resolved_path = str(temp_file.resolve())
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to decode base64 MIDI content: {e}"})
 
     script = _PROJECT_ROOT / "skills" / "midi_analytics" / "scripts" / "parse_midi_metrics.py"
     return _run_script(script, ["--file-path", resolved_path])
