@@ -5,7 +5,7 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/) [![google-adk](https://img.shields.io/badge/ADK-2.3%2B-orange)](https://adk.dev/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Quick links:** [📺 Demo Video (YouTube)](#-todo) · [🌐 Live Demo](#-todo) · [💻 GitHub](https://github.com/esoltys/symbolic-music-assistant)
+**Quick links:** [📺 Demo Video (YouTube)](#-todo) · [🌐 Live Demo](#-todo) · [💻 GitHub](https://github.com/esoltys/cadence-music-assistant)
 
 ![Agent Playground Screenshot](examples/adk_screenshot_01.png)
 
@@ -278,7 +278,7 @@ The agent has 17 registered tools across the 5 skill areas:
 ### Project Structure
 
 ```
-symbolic-music-assistant/
+cadence-music-assistant/
 ├── app/                           # FastAPI application and telemetry wrappers
 │   └── app_utils/                 # Telemetry and typing helpers
 ├── agents/                        # ADK agent package

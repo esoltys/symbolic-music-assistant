@@ -219,6 +219,44 @@ wheels = [
 ]
 
 [[package]]
+name = "cadence"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "google-adk" },
+    { name = "google-cloud-logging" },
+    { name = "matplotlib" },
+    { name = "mcp", extra = ["cli"] },
+    { name = "music21" },
+    { name = "opentelemetry-exporter-gcp-logging" },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "pretty-midi" },
+    { name = "tinysoundfont" },
+]
+
+[package.optional-dependencies]
+eval = [
+    { name = "google-cloud-aiplatform", extra = ["evaluation"] },
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "google-adk", specifier = ">=2.3.0" },
+    { name = "google-cloud-aiplatform", extras = ["evaluation"], marker = "extra == 'eval'", specifier = ">=1.158.0" },
+    { name = "google-cloud-logging", specifier = ">=3.16.0" },
+    { name = "matplotlib", specifier = ">=3.8.0" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.28.1" },
+    { name = "music21", specifier = ">=9.1.0" },
+    { name = "opentelemetry-exporter-gcp-logging", specifier = ">=1.12.0a0" },
+    { name = "opentelemetry-exporter-otlp", specifier = ">=1.42.1" },
+    { name = "pretty-midi", specifier = ">=0.2.10" },
+    { name = "pytest", marker = "extra == 'eval'", specifier = ">=7.0.0" },
+    { name = "tinysoundfont", specifier = ">=0.3.7" },
+]
+provides-extras = ["eval"]
+
+[[package]]
 name = "certifi"
 version = "2026.6.17"
 source = { registry = "https://pypi.org/simple" }
@@ -3526,44 +3564,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/eb/e3/7c1dc7381d9f8ab7d
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/bb/2799cc2ede3ed41131f8975621e7213dfc7ef4acbbaadfa440f32500c370/starlette-1.3.1-py3-none-any.whl", hash = "sha256:c7372aae11c3c3f26a42df7bd626cec2f47d03483d261d369516a615a53714c6", size = 73632, upload-time = "2026-06-12T09:23:10.017Z" },
 ]
-
-[[package]]
-name = "symbolic-music-assistant"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "google-adk" },
-    { name = "google-cloud-logging" },
-    { name = "matplotlib" },
-    { name = "mcp", extra = ["cli"] },
-    { name = "music21" },
-    { name = "opentelemetry-exporter-gcp-logging" },
-    { name = "opentelemetry-exporter-otlp" },
-    { name = "pretty-midi" },
-    { name = "tinysoundfont" },
-]
-
-[package.optional-dependencies]
-eval = [
-    { name = "google-cloud-aiplatform", extra = ["evaluation"] },
-    { name = "pytest" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "google-adk", specifier = ">=2.3.0" },
-    { name = "google-cloud-aiplatform", extras = ["evaluation"], marker = "extra == 'eval'", specifier = ">=1.158.0" },
-    { name = "google-cloud-logging", specifier = ">=3.16.0" },
-    { name = "matplotlib", specifier = ">=3.8.0" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.28.1" },
-    { name = "music21", specifier = ">=9.1.0" },
-    { name = "opentelemetry-exporter-gcp-logging", specifier = ">=1.12.0a0" },
-    { name = "opentelemetry-exporter-otlp", specifier = ">=1.42.1" },
-    { name = "pretty-midi", specifier = ">=0.2.10" },
-    { name = "pytest", marker = "extra == 'eval'", specifier = ">=7.0.0" },
-    { name = "tinysoundfont", specifier = ">=0.3.7" },
-]
-provides-extras = ["eval"]
 
 [[package]]
 name = "tenacity"
