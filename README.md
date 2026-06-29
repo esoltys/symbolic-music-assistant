@@ -3,7 +3,7 @@
 > **Kaggle Capstone — Agents for Good track**  
 > "AI Agents: Intensive Vibe Coding Course" with Google x Kaggle
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/) [![google-adk](https://img.shields.io/badge/ADK-2.3%2B-orange)](https://adk.dev/) [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/) [![google-adk](https://img.shields.io/badge/ADK-2.3%2B-orange)](https://adk.dev/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Quick links:** [📺 Demo Video (YouTube)](#-todo) · [🌐 Live Demo](#-todo) · [💻 GitHub](https://github.com/esoltys/symbolic-music-assistant)
 
