@@ -367,6 +367,7 @@ Add the following entry to the `mcpServers` block:
 *Replace `<absolute-path-to-cadence-music-assistant>` with the actual absolute path to this project directory on your local machine (using double backslashes `\\` on Windows).*
 
 * **File Access Permissions:** By default, Cadence allows access to files inside the project root, the current working directory, and non-hidden directories inside your user home folder (such as `Downloads` or `Claude`). To grant access to folders outside these locations, define them in the optional `CADENCE_ALLOWED_PATHS` environment variable (separated by semicolons on Windows, or colons on macOS/Linux).
+* **Headless/Sandbox File Ingestion:** If the client (like Claude Desktop) is running in a sandbox, container, or VM and cannot directly share a local file path with the host system, the tools `analyze_midi_file`, `detect_key`, and `import_midi_to_score` support a `file_content_base64` parameter. The client can read the file content locally and pass it as a base64-encoded string, bypassing filesystem boundaries.
 
 
 ### 🛠️ Project Management
