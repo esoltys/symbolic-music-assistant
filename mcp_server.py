@@ -595,7 +595,27 @@ def render_notation(tracks: str = "", session_id: str = "default", output_format
     tracks = _sanitize_arg(tracks)
     session_id = _sanitize_arg(session_id)
     output_format = _sanitize_arg(output_format)
+
+    # Defensive check: if the model passed a format string to the tracks parameter
+    if tracks.strip().lower() in ("piano_roll", "score_plot", "musicxml", "score_xml"):
+        if not output_format:
+            output_format = tracks
+            tracks = ""
+
     script = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "scripts" / "generate_visuals.py"
+    
+    # Delete stale files from previous runs in the same session
+    assets_dir = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "assets"
+    piano_roll_path = assets_dir / f"piano_roll_{session_id}.png"
+    score_plot_path = assets_dir / f"score_plot_{session_id}.png"
+    musicxml_path = assets_dir / f"score_{session_id}.musicxml"
+    for path in (piano_roll_path, score_plot_path, musicxml_path):
+        if path.is_file():
+            try:
+                path.unlink()
+            except Exception:
+                pass
+
     args = ["--session-id", session_id]
     if tracks:
         args += ["--tracks", tracks]

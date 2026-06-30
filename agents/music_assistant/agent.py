@@ -557,15 +557,34 @@ async def render_notation(tool_context: ToolContext, tracks: str = "", output_fo
     script_path = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "scripts" / "generate_visuals.py"
     tracks = _sanitize_arg(tracks)
     output_format = _sanitize_arg(output_format)
+
+    # Defensive check: if the model passed a format string to the tracks parameter
+    if tracks.strip().lower() in ("piano_roll", "score_plot", "musicxml", "score_xml"):
+        if not output_format:
+            output_format = tracks
+            tracks = ""
+
     session_id = tool_context.session.id
-    
     python_exe = sys.executable or "python"
     cmd = [python_exe, str(script_path), "--session-id", session_id]
     if tracks:
         cmd.extend(["--tracks", tracks])
     if output_format:
         cmd.extend(["--format", output_format])
-        
+
+    assets_dir = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "assets"
+    piano_roll_path = assets_dir / f"piano_roll_{session_id}.png"
+    score_plot_path = assets_dir / f"score_plot_{session_id}.png"
+    musicxml_path = assets_dir / f"score_{session_id}.musicxml"
+
+    # Delete stale files from previous runs in the same session
+    for path in (piano_roll_path, score_plot_path, musicxml_path):
+        if path.is_file():
+            try:
+                path.unlink()
+            except Exception:
+                pass
+
     try:
         result = subprocess.run(
             cmd,
@@ -577,11 +596,6 @@ async def render_notation(tool_context: ToolContext, tracks: str = "", output_fo
         
         # Load and save artifacts
         if result.returncode == 0:
-            assets_dir = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "assets"
-            piano_roll_path = assets_dir / f"piano_roll_{session_id}.png"
-            score_plot_path = assets_dir / f"score_plot_{session_id}.png"
-            musicxml_path = assets_dir / f"score_{session_id}.musicxml"
-
             try:
                 res_dict = json.loads(result.stdout)
             except Exception:
