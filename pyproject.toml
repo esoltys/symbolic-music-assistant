@@ -5,7 +5,7 @@ description = "Cadence — an AI music assistant using google-adk, music21, and 
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "google-adk>=2.3.0",
+    "google-adk[gcp]>=2.0.0,<3.0.0",
     "music21>=9.1.0",
     "pretty-midi>=0.2.10",
     "matplotlib>=3.8.0",
@@ -14,6 +14,8 @@ dependencies = [
     "opentelemetry-exporter-gcp-logging>=1.12.0a0",
     "tinysoundfont>=0.3.7",
     "mcp[cli]>=1.28.1",
+    "a2a-sdk[http-server]~=0.3.22",
+    "aiohttp>=3.13.4",
 ]
 
 [project.optional-dependencies]
