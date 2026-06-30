@@ -1,17 +1,15 @@
-# 🎵 Cadence AI Music Assistant
+# Cadence AI Music Assistant
 
 > **Kaggle Capstone — Agents for Good track**  
 > AI Agents: Intensive Vibe Coding Course with Google
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/) [![google-adk](https://img.shields.io/badge/ADK-2.3%2B-orange)](https://adk.dev/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/) [![google-adk](https://img.shields.io/badge/ADK-2.3%2B-orange)](https://adk.dev/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/esoltys/cadence-music-assistant/blob/main/LICENSE)
 
-**Quick links:** [📺 Demo Video (YouTube)](#-todo) · [🌐 Live Demo](#-todo) · [💻 GitHub](https://github.com/esoltys/cadence-music-assistant)
-
-![Agent Playground Screenshot](examples/adk_screenshot_01.png)
+![Agent Playground Screenshot](https://raw.githubusercontent.com/esoltys/cadence-music-assistant/main/examples/adk_screenshot_01.png)
 
 ---
 
-## 🎯 The Problem
+## The Problem
 
 Musicians and students have a cadence to their creative work — a rhythm of thinking, experimenting, and refining. That cadence breaks every time they have to stop and switch tools.
 
@@ -25,7 +23,7 @@ AI agents are uniquely positioned to solve this because music tasks are inherent
 
 ---
 
-## 💡 The Solution
+## The Solution
 
 **Cadence** is a conversational AI agent that keeps musicians and students in their creative flow. Ask a theory question, build a score, visualize it, and hear it — all in one conversation, with no tool switching.
 
@@ -40,55 +38,9 @@ AI agents are uniquely positioned to solve this because music tasks are inherent
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
-```mermaid
-flowchart TD
-    U(["👤 User"])
-    PG["ADK Playground / Web UI"]
-    A["🤖 Root Agent\nmusic_assistant_root\nGemini 2.5 Flash"]
-    S["🗂️ Session State\nin-memory per session"]
-    MCP["🔌 MCP Server\nmcp_server.py\nstdio transport"]
-
-    subgraph Tools ["17 Registered Tools"]
-        T1["🎼 Score Construction\ninitialize · add_note · transpose\nexport_midi · import_midi\nset_tempo · assign_instrument\nvalidate_voice_leading"]
-        T2["🎵 Music Theory\nevaluate_interval · list_scale_pitches\nanalyze_chord · detect_key"]
-        T3["📊 MIDI Analytics\nanalyze_midi_file"]
-        T4["🖼️ Visual Notation\nrender_notation"]
-        T5["🔊 Audio Synthesis\nsynthesize_score · list_soundfonts\nlist_soundfont_instruments"]
-    end
-
-    subgraph Skills ["5 Skill Scripts (subprocess)"]
-        SK1["score_construction/"]
-        SK2["music_theory_query/"]
-        SK3["midi_analytics/"]
-        SK4["visual_notation_rendering/"]
-        SK5["acoustic_audio_synthesis/"]
-    end
-
-    subgraph Libs ["Libraries"]
-        L1["music21"]
-        L2["pretty_midi"]
-        L3["matplotlib"]
-        L4["tinysoundfont"]
-    end
-
-    U -->|"natural language"| PG
-    PG --> A
-    A <--> S
-    A --> Tools
-    T1 --> SK1
-    T2 --> SK2
-    T3 --> SK3
-    T4 --> SK4
-    T5 --> SK5
-    SK1 & SK2 --> L1
-    SK3 --> L2
-    SK4 --> L1 & L3
-    SK5 --> L4
-
-    MCP -->|"exposes all 17 tools across 5 skills"| Tools
-```
+See the system architecture diagram in [architecture.mermaid](https://github.com/esoltys/cadence-music-assistant/blob/main/architecture.mermaid).
 
 ### Technology Stack
 
@@ -108,29 +60,29 @@ flowchart TD
 
 ---
 
-## ✅ Key Concepts Demonstrated
+## Key Concepts Demonstrated
 
 The following concepts from the "AI Agents: Intensive Vibe Coding Course" are demonstrated in this project:
 
-| Concept | Status | Where |
-|---|---|---|
-| **Agent / Multi-agent system (ADK)** | ✅ | [`agents/music_assistant/agent.py`](agents/music_assistant/agent.py) — `root_agent = Agent(...)` with 17 registered tools |
-| **Agent Skills (agents-cli)** | ✅ | 5 skill directories under `skills/`, `agents-cli-manifest.yaml`, full `eval/playground/deploy` workflow |
-| **MCP Server** | ✅ | [`mcp_server.py`](mcp_server.py) — exposes all 17 music theory, composition, visualization, and synthesis tools via stdio MCP for external clients |
-| **Security features** | ✅ | Path traversal guard (`_safe_resolve_path`), input length caps (`_sanitize_arg`), CORS control, session isolation, privacy-preserving telemetry |
-| **Deployability** | ✅ | `Dockerfile`, Cloud Run deployment via `agents-cli deploy`, Terraform scaffold available |
-| **Antigravity** | ✅ | Used throughout development — see [`GEMINI.md`](GEMINI.md) and video demo |
+| Concept | Where |
+|---|---|
+| **Agent / Multi-agent system (ADK)** | [`agents/music_assistant/agent.py`](https://github.com/esoltys/cadence-music-assistant/blob/main/agents/music_assistant/agent.py) — `root_agent = Agent(...)` with 17 registered tools |
+| **Agent Skills (agents-cli)** | 5 skill directories under `skills/`, `agents-cli-manifest.yaml`, full `eval/playground/deploy` workflow |
+| **MCP Server** | [`mcp_server.py`](https://github.com/esoltys/cadence-music-assistant/blob/main/mcp_server.py) — exposes all 17 music theory, composition, visualization, and synthesis tools via stdio MCP for external clients |
+| **Security features** | Path traversal guard (`_safe_resolve_path`), input length caps (`_sanitize_arg`), CORS control, session isolation, privacy-preserving telemetry |
+| **Deployability** | `Dockerfile`, Cloud Run deployment via `agents-cli deploy`, Terraform scaffold available |
+| **Antigravity** | Used throughout development — see [`GEMINI.md`](https://github.com/esoltys/cadence-music-assistant/blob/main/GEMINI.md) and video demo |
 
 ---
 
-## 🔒 Security
+## Security
 
 Security is designed in at multiple layers:
 
 | Feature | Implementation |
 |---|---|
 | **No secrets in code** | All credentials via environment variables; `.gitignore` excludes `.env`, `*.db`, all session artifacts |
-| **Path traversal prevention** | `_safe_resolve_path()` in [`agent.py`](agents/music_assistant/agent.py) resolves any LLM-supplied file path and asserts it stays within the project root |
+| **Path traversal prevention** | `_safe_resolve_path()` in [`agent.py`](https://github.com/esoltys/cadence-music-assistant/blob/main/agents/music_assistant/agent.py) resolves any LLM-supplied file path and asserts it stays within the project root |
 | **Input length caps** | `_sanitize_arg()` truncates all string subprocess arguments to 256 chars, preventing oversized inputs |
 | **No shell injection** | All subprocess calls use list argv (`shell=False`); no user-supplied strings are concatenated into shell commands |
 | **Soundfont directory restriction** | `synthesize_score` strips all directory components from user-supplied soundfont names via `Path(name).name`, ensuring only files inside `soundfonts/` can be loaded |
@@ -140,20 +92,7 @@ Security is designed in at multiple layers:
 
 ---
 
-## 🖼️ Gallery
-
-> [!IMPORTANT]
-> **TODO:** Replace with high-quality screenshots before submission.
-> Capture and add:
-> - `examples/screenshot_playground_session.png` — a full ADK playground conversation showing score building + theory query in one session
-> - `examples/screenshot_piano_roll.png` — a rendered piano roll of a multi-part score with clear labels
-> - `examples/screenshot_musicxml.png` — the MusicXML output open in MuseScore
-> - `examples/screenshot_audio_wave.png` — the synthesized WAV loaded in an audio viewer
-> - `examples/diagram_architecture.png` — an exported version of the Mermaid architecture diagram above
-
----
-
-## 🎵 What Can the Assistant Do? (User Guide)
+## What Can the Assistant Do? (User Guide)
 
 The assistant gives you an **interactive music education and composition environment** through plain conversation. All five skill areas share a live session state — notes you build in one step are immediately available to transpose, visualize, validate, or synthesize in the next.
 
@@ -253,27 +192,27 @@ The agent has 17 registered tools across the 5 skill areas:
 
 | Tool | Skill Area |
 |---|---|
-| `initialize_score` | Score Construction |
-| `add_note_to_score` | Score Construction |
-| `transpose_score` | Score Construction |
-| `set_score_tempo` | Score Construction |
-| `assign_instrument_to_track` | Score Construction |
-| `validate_voice_leading` | Score Construction |
-| `export_score_to_midi` | Score Construction |
-| `import_midi_to_score` | Score Construction |
-| `evaluate_interval` | Music Theory |
-| `list_scale_pitches` | Music Theory |
-| `analyze_chord` | Music Theory |
-| `detect_key` | Music Theory |
-| `analyze_midi_file` | MIDI Analytics |
-| `render_notation` | Visual Notation |
-| `synthesize_score` | Audio Synthesis |
-| `list_soundfonts` | Audio Synthesis |
-| `list_soundfont_instruments` | Audio Synthesis |
+| `initialize_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `add_note_to_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `transpose_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `set_score_tempo` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `assign_instrument_to_track` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `validate_voice_leading` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `export_score_to_midi` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `import_midi_to_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `evaluate_interval` | [Music Theory](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/music_theory_query/SKILL.md) |
+| `list_scale_pitches` | [Music Theory](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/music_theory_query/SKILL.md) |
+| `analyze_chord` | [Music Theory](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/music_theory_query/SKILL.md) |
+| `detect_key` | [Music Theory](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/music_theory_query/SKILL.md) |
+| `analyze_midi_file` | [MIDI Analytics](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/midi_analytics/SKILL.md) |
+| `render_notation` | [Visual Notation](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/visual_notation_rendering/SKILL.md) |
+| `synthesize_score` | [Audio Synthesis](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/acoustic_audio_synthesis/SKILL.md) |
+| `list_soundfonts` | [Audio Synthesis](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/acoustic_audio_synthesis/SKILL.md) |
+| `list_soundfont_instruments` | [Audio Synthesis](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/acoustic_audio_synthesis/SKILL.md) |
 
 ---
 
-## 🛠️ Developer Guide
+## Developer Guide
 
 ### Project Structure
 
@@ -298,7 +237,7 @@ cadence-music-assistant/
 └── pyproject.toml                 # Project dependencies
 ```
 
-> 💡 **Tip:** Use [Google Antigravity](https://antigravity.google/) for AI-assisted development — project context is pre-configured in [GEMINI.md](GEMINI.md).
+> 💡 **Tip:** Use [Google Antigravity](https://antigravity.google/) for AI-assisted development — project context is pre-configured in [GEMINI.md](https://github.com/esoltys/cadence-music-assistant/blob/main/GEMINI.md).
 
 ### Requirements
 
@@ -332,59 +271,12 @@ You can also use the [ADK](https://adk.dev/) CLI directly with `uv run adk`.
 The project includes an MCP server (`mcp_server.py`) that exposes the full suite of music theory, score construction, MIDI analytics, notation rendering, and audio synthesis tools over the stdio transport. This allows external MCP clients—such as Claude Desktop or other ADK agents—to call the music engine directly.
 
 **Run the server:**
+
 ```bash
 uv run python mcp_server.py
 ```
 
-**Adding to Claude Desktop:**
-
-You can integrate Cadence directly into Claude Desktop. Open your Claude Desktop configuration file:
-* **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-* **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-
-Add the following entry to the `mcpServers` block:
-
-```json
-{
-  "mcpServers": {
-    "cadence-music-assistant": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "<absolute-path-to-cadence-music-assistant>",
-        "run",
-        "python",
-        "mcp_server.py"
-      ],
-      "env": {
-        "CADENCE_ALLOWED_PATHS": "<optional-custom-music-directories>"
-      }
-    }
-  }
-}
-```
-
-*Replace `<absolute-path-to-cadence-music-assistant>` with the actual absolute path to this project directory on your local machine (using double backslashes `\\` on Windows).*
-
-* **Attachment-Driven Ingestion:** To ensure maximum sandboxing, safety, and compatibility with clients running in isolated container/VM environments, the tools `analyze_midi_file`, `detect_key`, and `import_midi_to_score` do not accept raw host-level file paths. Instead, they accept a structured `file_attachment` parameter mapping:
-  ```json
-  {
-    "fileName": "string",
-    "mimeType": "string",
-    "base64Data": "string"
-  }
-  ```
-  This allows host clients (like Claude Desktop or the ADK runner) to feed chat attachments directly into the tool context as clean base64 data.
-* **Exposed MCP Resources:** To retrieve generated scores, rendering plots, and synthesized audio files directly via the MCP protocol, the server exposes the following dynamic resource templates (replacing `{session_id}` with the unique score session ID, e.g. `default`):
-  - `music://scores/{session_id}/score.mid` (MIME: `audio/midi`) - The exported MIDI score.
-  - `music://scores/{session_id}/score.musicxml` (MIME: `application/xml`) - The MusicXML sheet music.
-  - `music://scores/{session_id}/piano_roll.png` (MIME: `image/png`) - Rendered piano roll visualization.
-  - `music://scores/{session_id}/score_plot.png` (MIME: `image/png`) - Rendered notation timeline graph.
-  - `music://scores/{session_id}/score.wav` (MIME: `audio/wav`) - Synthesized WAV audio file.
-
-
-
-### 🛠️ Project Management
+### Project Management
 
 | Command | What It Does |
 |---------|--------------|
@@ -426,15 +318,3 @@ To set up production infrastructure: `agents-cli infra cicd`
 ### Observability
 
 Built-in telemetry exports to Cloud Trace, BigQuery, and Cloud Logging. Prompt/response content is **never logged** — only metadata (latency, token counts) is captured.
-
----
-
-## 📋 TODO
-
-> [!IMPORTANT]
-> The following items are outstanding and required for the final Kaggle submission:
-
-- [ ] **🎬 YouTube Demo Video** (≤ 5 min, required for submission)
-  - Record walkthrough: problem statement → architecture → live demo → build process
-  - Upload to YouTube (public or unlisted) and update the link at the top of this README
-- [ ] **🌐 Live Demo URL** — run `agents-cli deploy` and update the link at the top of this README
