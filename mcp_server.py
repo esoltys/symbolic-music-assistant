@@ -6,6 +6,9 @@ server so that external MCP clients (e.g. Claude Desktop, other ADK agents, or
 any MCP-compatible application) can call them directly.
 """
 
+import warnings
+warnings.filterwarnings("ignore")
+
 import os
 import sys
 import subprocess
@@ -97,7 +100,7 @@ def _safe_resolve_path(user_path: str) -> str | None:
 # FastMCP server definition
 # ---------------------------------------------------------------------------
 mcp = FastMCP(
-    name="cadence-music-theory",
+    name="cadence",
     instructions=(
         "A music theory and score construction MCP server for Cadence, the AI music assistant. "
         "Provides stateless music theory queries, alongside score construction, voice leading checks, "
