@@ -16,11 +16,21 @@ FROM python:3.12-slim
 
 RUN pip install --no-cache-dir uv==0.8.13
 
+# Install system dependencies needed to build pyaudio (required by tinysoundfont)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    portaudio19-dev \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /code
 
 COPY ./pyproject.toml ./README.md ./uv.lock* ./
 
 COPY ./app ./app
+COPY ./agents ./agents
+COPY ./skills ./skills
+COPY ./soundfonts ./soundfonts
 
 RUN uv sync --frozen
 
