@@ -262,6 +262,12 @@ async def export_score_to_midi(tool_context: ToolContext) -> str:
                     filename=f"score_{session_id}.mid",
                     artifact=types.Part.from_bytes(data=data, mime_type="audio/midi")
                 )
+                try:
+                    res_dict = json.loads(result.stdout)
+                    res_dict["midi_path_absolute"] = str(midi_path.resolve().as_posix())
+                    return json.dumps(res_dict, indent=2)
+                except Exception:
+                    pass
                 
         return (result.stdout or result.stderr or 
                 json.dumps({"status": "error", "error": "No output from export-midi script."}))
@@ -537,24 +543,28 @@ def validate_voice_leading(tool_context: ToolContext) -> str:
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute voice leading checker script: {e}"})
 
-async def render_notation(tool_context: ToolContext, tracks: str = "") -> str:
+async def render_notation(tool_context: ToolContext, tracks: str = "", output_format: str = "") -> str:
     """Renders the current score state to visual piano roll and notation timeline graphs.
 
     Args:
         tool_context: The tool execution context containing session data.
         tracks: Optional comma-separated list of track IDs, names, or 1-based indices/ranges (e.g. 'piano', '1', '7-8') to render. If not specified, all tracks are rendered.
+        output_format: Optional format filter. Only specify this if the user explicitly requests a single format (e.g., 'piano_roll' or 'musicxml'). Otherwise, leave empty to render all default views.
 
     Returns:
         A JSON string containing the status, piano_roll image path, notation_layout image path, score_plot image path, or error details.
     """
     script_path = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "scripts" / "generate_visuals.py"
     tracks = _sanitize_arg(tracks)
+    output_format = _sanitize_arg(output_format)
     session_id = tool_context.session.id
     
     python_exe = sys.executable or "python"
     cmd = [python_exe, str(script_path), "--session-id", session_id]
     if tracks:
         cmd.extend(["--tracks", tracks])
+    if output_format:
+        cmd.extend(["--format", output_format])
         
     try:
         result = subprocess.run(
@@ -572,6 +582,11 @@ async def render_notation(tool_context: ToolContext, tracks: str = "") -> str:
             score_plot_path = assets_dir / f"score_plot_{session_id}.png"
             musicxml_path = assets_dir / f"score_{session_id}.musicxml"
 
+            try:
+                res_dict = json.loads(result.stdout)
+            except Exception:
+                res_dict = {"status": "success"}
+
             if piano_roll_path.is_file():
                 with open(piano_roll_path, "rb") as f:
                     data = f.read()
@@ -579,6 +594,8 @@ async def render_notation(tool_context: ToolContext, tracks: str = "") -> str:
                     filename=f"piano_roll_{session_id}.png",
                     artifact=types.Part.from_bytes(data=data, mime_type="image/png")
                 )
+                if "piano_roll" in res_dict:
+                    res_dict["piano_roll_absolute"] = str(piano_roll_path.resolve().as_posix())
             
             if score_plot_path.is_file():
                 with open(score_plot_path, "rb") as f:
@@ -587,14 +604,20 @@ async def render_notation(tool_context: ToolContext, tracks: str = "") -> str:
                     filename=f"score_plot_{session_id}.png",
                     artifact=types.Part.from_bytes(data=data, mime_type="image/png")
                 )
+                if "score_plot" in res_dict:
+                    res_dict["score_plot_absolute"] = str(score_plot_path.resolve().as_posix())
 
             if musicxml_path.is_file():
                 with open(musicxml_path, "rb") as f:
                     data = f.read()
                 await tool_context.save_artifact(
                     filename=f"score_{session_id}.musicxml",
-                    artifact=types.Part.from_bytes(data=data, mime_type="application/vnd.recordare.musicxml+xml")
+                    artifact=types.Part.from_bytes(data=data, mime_type="application/xml")
                 )
+                if "score_xml" in res_dict:
+                    res_dict["musicxml_absolute"] = str(musicxml_path.resolve().as_posix())
+
+            return json.dumps(res_dict, indent=2)
 
         return (result.stdout or result.stderr or 
                 json.dumps({"status": "error", "error": "No output from rendering script."}))
@@ -644,6 +667,12 @@ async def synthesize_score(tool_context: ToolContext, tracks: str = "", soundfon
                     filename=f"score_{session_id}.wav",
                     artifact=types.Part.from_bytes(data=data, mime_type="audio/wav")
                 )
+                try:
+                    res_dict = json.loads(result.stdout)
+                    res_dict["audio_path_absolute"] = str(wav_path.resolve().as_posix())
+                    return json.dumps(res_dict, indent=2)
+                except Exception:
+                    pass
                 
         return (result.stdout or result.stderr or 
                 json.dumps({"status": "error", "error": "No output from synthesis script."}))
@@ -941,7 +970,7 @@ root_agent = Agent(
         "Use the initialize_score and add_note_to_score tools to manage and construct symbolic scores.\n"
         "Use the transpose_score tool to transpose all notes/chords and key signatures in the active score up or down by a given number of semitones.\n"
         "Use the validate_voice_leading tool to check the active score for classical voice-leading violations (parallel fifths/octaves) and range errors.\n"
-        "Use the export_score_to_midi tool to export the active score to a standard MIDI file. When exporting MIDI, you MUST return the absolute path of the generated MIDI asset formatted as a clickable Markdown link using the file:// scheme, for example: [score_<session_id>.mid](file:///C:/Users/ericj/source/cadence-music-assistant/skills/score_construction/assets/score_<session_id>.mid).\n"
+        "Use the export_score_to_midi tool to export the active score to a standard MIDI file. When exporting MIDI, notify the user that the MIDI file is ready. Do not output any file:// links in your response. The chat UI will automatically attach the generated MIDI file inline for the user to download.\n"
         "Use the import_midi_to_score tool to load an external MIDI file into the active score session. When you run import_midi_to_score, you MUST list the automatically assigned instruments for all tracks in your response to the user. "
         "Additionally, if the tool returns any tracks in 'uncertain_parts' (meaning they defaulted to Acoustic Grand Piano (0) but their track names suggest they might be different instruments), you MUST ask the user for clarification about which General MIDI instruments they want to assign to those tracks.\n"
         "Use the list_soundfonts tool to view available soundfont files and their descriptions.\n"
@@ -949,13 +978,13 @@ root_agent = Agent(
         "Use the assign_instrument_to_track tool to manually assign a specific General MIDI instrument (program number 0-127) and optionally flag it as unpitched percussion for a given part_id in the score.\n"
         "Use the set_score_tempo tool to set or change the tempo (in BPM) at a specific beat offset in the active score.\n"
         "Use the analyze_midi_file tool to ingest raw MIDI files and extract track count, tempo, note count, and detailed instrument track information.\n"
-        "Use the render_notation tool to visualize the current score state as piano roll and timeline notation graphs. You can optionally filter which tracks are rendered/exported by passing a comma-separated list of track IDs, names, or 1-based indices/ranges (e.g. 'piano', '1', '7-8') to the tracks parameter. "
+        "Use the render_notation tool to visualize the current score state as piano roll and timeline notation graphs. You can optionally filter which tracks are rendered/exported by passing a comma-separated list of track IDs, names, or 1-based indices/ranges (e.g. 'piano', '1', '7-8') to the tracks parameter. Do not specify the output_format parameter unless the user explicitly requests only a single format. "
         "When rendering visual notation, if the user explicitly requested a piano roll, visualization, or plot, you MUST return the actual paths of the generated image assets (piano_roll, score_plot) returned by the tool formatted as inline Markdown image links, for example: "
-        "![Piano Roll](skills/visual_notation_rendering/assets/piano_roll_<session_id>.png) and ![Score Plot](skills/visual_notation_rendering/assets/score_plot_<session_id>.png) (using the actual session ID from the tool response). "
-        "Otherwise, if the user only requested sheet music or a MusicXML file, you MUST NOT embed the piano roll images in your response, and you MUST only explicitly notify the user that the high-fidelity MusicXML asset is ready for MuseScore inspection, formatted as a clickable Markdown file link using the file:// scheme and its absolute path, for example: [score_<session_id>.musicxml](file:///C:/Users/ericj/source/cadence-music-assistant/skills/visual_notation_rendering/assets/score_<session_id>.musicxml).\n"
+        "![Piano Roll](skills/visual_notation_rendering/assets/piano_roll_<session_id>.png) and ![Score Plot](skills/visual_notation_rendering/assets/score_plot_<session_id>.png) (using the actual session ID from the tool response), and you MUST also explicitly notify the user that the generated MusicXML file is ready for MuseScore inspection by including the exact path of the generated MusicXML file (skills/visual_notation_rendering/assets/score_<session_id>.musicxml) in your text response. "
+        "Otherwise, if the user only requested sheet music or a MusicXML file, you MUST NOT embed the piano roll images in your response, and you MUST only explicitly notify the user that the high-fidelity MusicXML asset is ready. Do not output any file:// links in your response. The chat UI will automatically attach the generated MusicXML file inline for the user to download.\n"
         "Use the synthesize_score tool to compile the notes from the score state into a WAV audio file. You can optionally filter which tracks are played/synthesized by passing a comma-separated list of track IDs, names, or 1-based indices/ranges (e.g. 'piano', '1', '7-8') to the tracks parameter. "
         "You can also pass a soundfont filename to the soundfont parameter to choose which .sf2 soundfont is used for synthesis (e.g. 'TimGM6mb.sf2' for General MIDI, or 'SalamanderGrandPiano-V3+20200602.sf2' for the high-quality grand piano). If the user asks for a specific instrument or soundfont and you are unsure of the exact filename, call list_soundfonts first. "
-        "When synthesizing audio, you MUST return the absolute path of the generated audio asset formatted as a clickable Markdown link using the file:// scheme, for example: [score_<session_id>.wav](file:///C:/Users/ericj/source/cadence-music-assistant/skills/acoustic_audio_synthesis/assets/score_<session_id>.wav). Also mention which soundfont was used (it is returned in the tool response as 'soundfont').\n"
+        "When synthesizing audio, notify the user that the audio is ready. Do not output any file:// links in your response. The chat UI will automatically attach the generated WAV file inline for the user to play or download. Also mention which soundfont was used (it is returned in the tool response as 'soundfont').\n"
         "IMPORTANT: If the user requests to 'export' the score without specifying a format, you MUST clarify whether they want a MIDI file (using export_score_to_midi) or visual notation/sheet music (using render_notation)."
     ),
     tools=[

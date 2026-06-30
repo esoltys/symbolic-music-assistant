@@ -581,35 +581,58 @@ def synthesize_score(tracks: str = "", soundfont: str = "", session_id: str = "d
 # ===========================================================================
 
 @mcp.tool()
-def render_notation(tracks: str = "", session_id: str = "default") -> str:
+def render_notation(tracks: str = "", session_id: str = "default", output_format: str = "") -> str:
     """Render the current score state to visual piano roll and notation timeline graphs.
 
     Args:
-        tracks:     Optional comma-separated list of track IDs or names to render.
-        session_id: The unique score session ID. Defaults to 'default'.
+        tracks:        Optional comma-separated list of track IDs or names to render.
+        session_id:    The unique score session ID. Defaults to 'default'.
+        output_format: Optional comma-separated list of formats to render (e.g. 'piano_roll', 'score_plot', 'musicxml').
 
     Returns:
-        JSON with keys: status, piano_roll, score_plot, notation_layout, musicxml_path.
+        JSON with keys: status, piano_roll, score_plot, score_xml, and URIs.
     """
     tracks = _sanitize_arg(tracks)
     session_id = _sanitize_arg(session_id)
+    output_format = _sanitize_arg(output_format)
     script = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "scripts" / "generate_visuals.py"
     args = ["--session-id", session_id]
     if tracks:
         args += ["--tracks", tracks]
+    if output_format:
+        args += ["--format", output_format]
 
     res_json = _run_script(script, args)
     try:
         data = json.loads(res_json)
         if data.get("status") == "success":
             assets_dir = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "assets"
-            for key in ["piano_roll", "score_plot", "notation_layout", "musicxml_path"]:
-                if key in data and data[key]:
-                    filename = Path(data[key]).name
-                    data[key] = str((assets_dir / filename).resolve())
-            data["piano_roll_uri"] = f"music://scores/{session_id}/piano_roll.png"
-            data["score_plot_uri"] = f"music://scores/{session_id}/score_plot.png"
-            data["musicxml_uri"] = f"music://scores/{session_id}/score.musicxml"
+            piano_roll_path = assets_dir / f"piano_roll_{session_id}.png"
+            score_plot_path = assets_dir / f"score_plot_{session_id}.png"
+            musicxml_path = assets_dir / f"score_{session_id}.musicxml"
+
+            # Clean/filter absolute and relative paths based on actual file existence and request
+            if "piano_roll" in data and piano_roll_path.is_file():
+                data["piano_roll"] = str(piano_roll_path.resolve())
+                data["piano_roll_uri"] = f"music://scores/{session_id}/piano_roll.png"
+            else:
+                data.pop("piano_roll", None)
+                data.pop("piano_roll_uri", None)
+
+            if "score_plot" in data and score_plot_path.is_file():
+                data["score_plot"] = str(score_plot_path.resolve())
+                data["score_plot_uri"] = f"music://scores/{session_id}/score_plot.png"
+            else:
+                data.pop("score_plot", None)
+                data.pop("score_plot_uri", None)
+
+            if "score_xml" in data and musicxml_path.is_file():
+                data["score_xml"] = str(musicxml_path.resolve())
+                data["musicxml_uri"] = f"music://scores/{session_id}/score.musicxml"
+            else:
+                data.pop("score_xml", None)
+                data.pop("musicxml_uri", None)
+
             return json.dumps(data, indent=2)
     except Exception:
         pass

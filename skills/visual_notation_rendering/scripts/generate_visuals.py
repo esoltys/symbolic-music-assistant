@@ -75,6 +75,7 @@ def main():
     parser.add_argument("--score-path", help="Path to the score state JSON file")
     parser.add_argument("--session-id", required=True, help="Unique ADK runtime session ID")
     parser.add_argument("--tracks", default="", help="Optional comma-separated list of tracks to render")
+    parser.add_argument("--format", default="", help="Optional comma-separated list of formats to render (piano_roll, score_plot, musicxml)")
     args = parser.parse_args()
 
     # Determine paths
@@ -87,6 +88,20 @@ def main():
         score_path = project_root / "skills" / "score_construction" / "assets" / f"score_{args.session_id}.json"
         
     assets_dir = script_dir.parent / "assets"
+    piano_roll_path = assets_dir / f"piano_roll_{args.session_id}.png"
+    score_plot_path = assets_dir / f"score_plot_{args.session_id}.png"
+    musicxml_path = assets_dir / f"score_{args.session_id}.musicxml"
+
+    requested_formats = set()
+    if args.format:
+        for fmt in args.format.split(","):
+            fmt_clean = fmt.strip().lower()
+            if fmt_clean in ("musicxml", "score_xml"):
+                requested_formats.add("musicxml")
+            elif fmt_clean in ("piano_roll", "score_plot"):
+                requested_formats.add(fmt_clean)
+    else:
+        requested_formats = {"piano_roll", "score_plot", "musicxml"}
     
     try:
         if not score_path.is_file():
@@ -176,150 +191,153 @@ def main():
         sorted_labels = [unique_pitches[m] for m in sorted_midi]
         
         # 1. Piano Roll Export (Matplotlib)
-        plt.figure(figsize=(10, 5))
-        plt.title("Score Piano Roll View (Multi-Part)", fontsize=14, fontweight='bold', pad=15)
-        plt.xlabel("Time (Beats)", fontsize=11, labelpad=10)
-        plt.ylabel("Pitch", fontsize=11, labelpad=10)
-        plt.grid(True, which='both', linestyle='--', alpha=0.5)
-        
-        # Plot horizontal segments for each part
-        plotted_parts = set()
-        for start, end, midi, pitch, part_idx, part_id in note_data:
-            color = PART_COLORS[part_idx % len(PART_COLORS)]
-            label = part_id if part_id not in plotted_parts else ""
-            if label:
-                plotted_parts.add(part_id)
-            plt.plot([start, end], [midi, midi], color=color, linewidth=8, solid_capstyle='butt', label=label)
+        if "piano_roll" in requested_formats or "score_plot" in requested_formats:
+            plt.figure(figsize=(10, 5))
+            plt.title("Score Piano Roll View (Multi-Part)", fontsize=14, fontweight='bold', pad=15)
+            plt.xlabel("Time (Beats)", fontsize=11, labelpad=10)
+            plt.ylabel("Pitch", fontsize=11, labelpad=10)
+            plt.grid(True, which='both', linestyle='--', alpha=0.5)
             
-        plt.yticks(sorted_midi, sorted_labels)
-        if len(sorted_midi) == 1:
-            plt.ylim(sorted_midi[0] - 1, sorted_midi[0] + 1)
-        else:
-            plt.ylim(sorted_midi[0] - 0.5, sorted_midi[-1] + 0.5)
+            # Plot horizontal segments for each part
+            plotted_parts = set()
+            for start, end, midi, pitch, part_idx, part_id in note_data:
+                color = PART_COLORS[part_idx % len(PART_COLORS)]
+                label = part_id if part_id not in plotted_parts else ""
+                if label:
+                    plotted_parts.add(part_id)
+                plt.plot([start, end], [midi, midi], color=color, linewidth=8, solid_capstyle='butt', label=label)
+                
+            plt.yticks(sorted_midi, sorted_labels)
+            if len(sorted_midi) == 1:
+                plt.ylim(sorted_midi[0] - 1, sorted_midi[0] + 1)
+            else:
+                plt.ylim(sorted_midi[0] - 0.5, sorted_midi[-1] + 0.5)
+                
+            plt.xlim(-0.2, max_time + 0.2)
+            if plotted_parts:
+                plt.legend(loc='upper right')
+                
+            plt.tight_layout()
             
-        plt.xlim(-0.2, max_time + 0.2)
-        if plotted_parts:
-            plt.legend(loc='upper right')
-            
-        plt.tight_layout()
-        
-        piano_roll_path = assets_dir / f"piano_roll_{args.session_id}.png"
-        score_plot_path = assets_dir / f"score_plot_{args.session_id}.png"
-        plt.savefig(piano_roll_path, dpi=150)
-        plt.savefig(score_plot_path, dpi=150)
-        plt.close()
+            if "piano_roll" in requested_formats:
+                plt.savefig(piano_roll_path, dpi=150)
+            if "score_plot" in requested_formats:
+                plt.savefig(score_plot_path, dpi=150)
+            plt.close()
         
         # 2. music21 MusicXML Export
-        m21_score = stream.Score()
-        ks_str = state.get("key_signature", "C Major")
-        time_signatures = state.get("time_signatures", [{"measure": 1, "ratio": state.get("time_signature", "4/4")}])
-        
-        # Precompute the max duration of each measure across all parts to handle missing/incomplete time signatures
-        measure_max_beats = {}
-        for part in parts:
-            for measure_item in part.get("measures", []):
-                m_num = measure_item.get("number")
-                events = measure_item.get("events", [])
-                beats = sum(DURATION_MAP.get(e.get("duration", "quarter").lower(), 1.0) for e in events)
-                if m_num is not None:
-                    measure_max_beats[m_num] = max(measure_max_beats.get(m_num, 0.0), beats)
+        if "musicxml" in requested_formats:
+            m21_score = stream.Score()
+            ks_str = state.get("key_signature", "C Major")
+            time_signatures = state.get("time_signatures", [{"measure": 1, "ratio": state.get("time_signature", "4/4")}])
+            
+            # Precompute the max duration of each measure across all parts to handle missing/incomplete time signatures
+            measure_max_beats = {}
+            for part in parts:
+                for measure_item in part.get("measures", []):
+                    m_num = measure_item.get("number")
+                    events = measure_item.get("events", [])
+                    beats = sum(DURATION_MAP.get(e.get("duration", "quarter").lower(), 1.0) for e in events)
+                    if m_num is not None:
+                        measure_max_beats[m_num] = max(measure_max_beats.get(m_num, 0.0), beats)
 
-        for part_idx, part in enumerate(parts):
-            m21_part = stream.Part()
-            m21_part.id = part.get("id", f"part_{part_idx}")
-            
-            # Resolve instrument based on program and percussion flag
-            from music21 import instrument
-            if part.get("is_percussion", False):
-                inst = instrument.Percussion()
-            else:
-                program = part.get("program", 0)
-                try:
-                    inst = instrument.instrumentFromMidiProgram(program)
-                except Exception:
-                    inst = instrument.Instrument()
-            inst.partName = part.get("name", f"Part {part_idx + 1}")
-            inst.partId = part.get("id", f"part_{part_idx}")
-            
-            previous_ts = None
-            for measure_idx, measure_item in enumerate(part.get("measures", [])):
-                m21_measure = stream.Measure()
-                m_num = measure_item.get("number", measure_idx + 1)
-                m21_measure.number = m_num
+            for part_idx, part in enumerate(parts):
+                m21_part = stream.Part()
+                m21_part.id = part.get("id", f"part_{part_idx}")
                 
-                ts_str = get_time_signature_for_measure(m_num, time_signatures)
-                expected_beats = parse_time_signature(ts_str)
-                
-                actual_max = measure_max_beats.get(m_num, 0.0)
-                if actual_max > expected_beats:
-                    expected_beats = actual_max
-                    ts_str = beats_to_time_signature(expected_beats)
-                
-                # Add time signature if it changes
-                if ts_str != previous_ts:
-                    m21_measure.append(meter.TimeSignature(ts_str))
-                    previous_ts = ts_str
-                
-                # Add metadata to the first measure
-                if measure_idx == 0:
-                    m21_measure.append(inst)
-                    clef_str = part.get("clef", "treble").lower()
-                    if clef_str == "bass":
-                        m21_measure.append(clef.BassClef())
-                    else:
-                        m21_measure.append(clef.TrebleClef())
-                    ks_parts = ks_str.strip().split()
-                    tonic = ks_parts[0]
-                    mode = ks_parts[1].lower() if len(ks_parts) > 1 else "major"
-                    m21_measure.append(key.Key(tonic, mode))
-                    
-                events = measure_item.get("events", [])
-                if not events:
-                    r = note.Rest()
-                    r.quarterLength = expected_beats
-                    m21_measure.append(r)
+                # Resolve instrument based on program and percussion flag
+                from music21 import instrument
+                if part.get("is_percussion", False):
+                    inst = instrument.Percussion()
                 else:
-                    current_beats = 0.0
-                    for event in events:
-                        pitches = event.get("pitches", ["rest"])
-                        duration_str = event.get("duration", "quarter").lower()
-                        dur_val = DURATION_MAP.get(duration_str, 1.0)
-                        
-                        if not pitches or "rest" in [p.lower() for p in pitches]:
-                            r = note.Rest()
-                            r.quarterLength = dur_val
-                            m21_measure.append(r)
-                        elif len(pitches) == 1:
-                            n = note.Note(pitches[0])
-                            n.quarterLength = dur_val
-                            m21_measure.append(n)
+                    program = part.get("program", 0)
+                    try:
+                        inst = instrument.instrumentFromMidiProgram(program)
+                    except Exception:
+                        inst = instrument.Instrument()
+                inst.partName = part.get("name", f"Part {part_idx + 1}")
+                inst.partId = part.get("id", f"part_{part_idx}")
+                
+                previous_ts = None
+                for measure_idx, measure_item in enumerate(part.get("measures", [])):
+                    m21_measure = stream.Measure()
+                    m_num = measure_item.get("number", measure_idx + 1)
+                    m21_measure.number = m_num
+                    
+                    ts_str = get_time_signature_for_measure(m_num, time_signatures)
+                    expected_beats = parse_time_signature(ts_str)
+                    
+                    actual_max = measure_max_beats.get(m_num, 0.0)
+                    if actual_max > expected_beats:
+                        expected_beats = actual_max
+                        ts_str = beats_to_time_signature(expected_beats)
+                    
+                    # Add time signature if it changes
+                    if ts_str != previous_ts:
+                        m21_measure.append(meter.TimeSignature(ts_str))
+                        previous_ts = ts_str
+                    
+                    # Add metadata to the first measure
+                    if measure_idx == 0:
+                        m21_measure.append(inst)
+                        clef_str = part.get("clef", "treble").lower()
+                        if clef_str == "bass":
+                            m21_measure.append(clef.BassClef())
                         else:
-                            c = chord.Chord(pitches)
-                            c.quarterLength = dur_val
-                            m21_measure.append(c)
-                        current_beats += dur_val
+                            m21_measure.append(clef.TrebleClef())
+                        ks_parts = ks_str.strip().split()
+                        tonic = ks_parts[0]
+                        mode = ks_parts[1].lower() if len(ks_parts) > 1 else "major"
+                        m21_measure.append(key.Key(tonic, mode))
                         
-                    if current_beats < expected_beats - 1e-5:
+                    events = measure_item.get("events", [])
+                    if not events:
                         r = note.Rest()
-                        r.quarterLength = expected_beats - current_beats
+                        r.quarterLength = expected_beats
                         m21_measure.append(r)
-                        
-                m21_part.append(m21_measure)
-            m21_score.append(m21_part)
+                    else:
+                        current_beats = 0.0
+                        for event in events:
+                          pitches = event.get("pitches", ["rest"])
+                          duration_str = event.get("duration", "quarter").lower()
+                          dur_val = DURATION_MAP.get(duration_str, 1.0)
+                          
+                          if not pitches or "rest" in [p.lower() for p in pitches]:
+                              r = note.Rest()
+                              r.quarterLength = dur_val
+                              m21_measure.append(r)
+                          elif len(pitches) == 1:
+                              n = note.Note(pitches[0])
+                              n.quarterLength = dur_val
+                              m21_measure.append(n)
+                          else:
+                              c = chord.Chord(pitches)
+                              c.quarterLength = dur_val
+                              m21_measure.append(c)
+                          current_beats += dur_val
+                          
+                        if current_beats < expected_beats - 1e-5:
+                            r = note.Rest()
+                            r.quarterLength = expected_beats - current_beats
+                            m21_measure.append(r)
+                            
+                    m21_part.append(m21_measure)
+                m21_score.append(m21_part)
+                
+            m21_score.write("musicxml", fp=str(musicxml_path))
+        
+        # Make relative paths from project root for portability and filter by what exists
+        output_data = {
+            "status": "success"
+        }
+        if "piano_roll" in requested_formats and piano_roll_path.is_file():
+            output_data["piano_roll"] = piano_roll_path.relative_to(project_root).as_posix()
+        if "score_plot" in requested_formats and score_plot_path.is_file():
+            output_data["score_plot"] = score_plot_path.relative_to(project_root).as_posix()
+        if "musicxml" in requested_formats and musicxml_path.is_file():
+            output_data["score_xml"] = musicxml_path.relative_to(project_root).as_posix()
             
-        # Export score to MusicXML
-        musicxml_path = assets_dir / f"score_{args.session_id}.musicxml"
-        m21_score.write("musicxml", fp=str(musicxml_path))
-        
-        # Make relative paths from project root for portability
-        rel_piano_roll = piano_roll_path.relative_to(project_root).as_posix()
-        rel_score_xml = musicxml_path.relative_to(project_root).as_posix()
-        
-        print(json.dumps({
-            "status": "success",
-            "piano_roll": rel_piano_roll,
-            "score_xml": rel_score_xml
-        }, indent=2))
+        print(json.dumps(output_data, indent=2))
         sys.exit(0)
         
     except Exception as e:
