@@ -38,11 +38,13 @@ _MAX_ARG_LEN = 256
 def _safe_decode_base64(b64_str: str) -> bytes:
     """Safely decode base64 file content, handling data URL prefixes, stripping invalid formatting, and fixing padding."""
     import base64
-    # Clean up whitespace and quotes
-    b64_str = b64_str.strip().strip("'\"")
+    # Clean up whitespace, quotes, and backslashes
+    b64_str = b64_str.strip().strip("'\"").replace("\n", "").replace("\r", "").replace("\\n", "").replace("\\r", "")
     # Strip data URL prefix if present (e.g. data:audio/midi;base64,TVRoZ...)
     if "," in b64_str and ";base64" in b64_str.split(",")[0]:
         b64_str = b64_str.split(",")[1]
+    # Standardize url-safe base64 characters
+    b64_str = b64_str.replace("-", "+").replace("_", "/")
     # Ensure proper padding
     missing_padding = len(b64_str) % 4
     if missing_padding:
@@ -161,14 +163,12 @@ def analyze_chord(pitches: str, key_signature: str = "") -> str:
 
 
 @mcp.tool()
-def detect_key(fileName: str = None, mimeType: str = None, base64Data: str = None, session_id: str = "default") -> str:
+def detect_key(file_attachment: dict = None, session_id: str = "default") -> str:
     """Estimate/detect the musical key signature of the active score or a MIDI file attachment.
 
     Args:
-        fileName:   Optional name of the attached file.
-        mimeType:   Optional MIME type of the attached file.
-        base64Data: Optional base64-encoded binary content of the attached file.
-        session_id: The unique score session ID. Defaults to 'default'.
+        file_attachment: Optional structured object containing {"fileName": "string", "mimeType": "string", "base64Data": "string"}.
+        session_id:      The unique score session ID. Defaults to 'default'.
 
     Returns:
         JSON with keys: status, detected_key, confidence, relative_keys.
@@ -183,13 +183,15 @@ def detect_key(fileName: str = None, mimeType: str = None, base64Data: str = Non
     temp_file = temp_dir / f"temp_{unique_id}.mid"
     
     try:
-        if base64Data:
-            content = _safe_decode_base64(base64Data)
-            if not content.startswith(b"MThd"):
-                return json.dumps({"status": "error", "error": "Invalid MIDI file: decoded content does not start with MThd header."})
-            
-            temp_file.write_bytes(content)
-            resolved_path = str(temp_file.resolve())
+        if file_attachment and isinstance(file_attachment, dict):
+            b64_str = file_attachment.get("base64Data") or file_attachment.get("base64_data")
+            if b64_str:
+                content = _safe_decode_base64(b64_str)
+                if not content.startswith(b"MThd"):
+                    return json.dumps({"status": "error", "error": "Invalid MIDI file: decoded content does not start with MThd header."})
+                
+                temp_file.write_bytes(content)
+                resolved_path = str(temp_file.resolve())
 
         script = _PROJECT_ROOT / "skills" / "music_theory_query" / "scripts" / "detect_key.py"
         args = []
@@ -331,21 +333,23 @@ def export_score_to_midi(session_id: str = "default") -> str:
 
 
 @mcp.tool()
-def import_midi_to_score(fileName: str, mimeType: str, base64Data: str, session_id: str = "default") -> str:
+def import_midi_to_score(file_attachment: dict, session_id: str = "default") -> str:
     """Import an external MIDI file attachment into the active score session.
 
     Args:
-        fileName:   The name of the file (e.g. 'melody.mid').
-        mimeType:   The MIME type of the file (e.g. 'audio/midi').
-        base64Data: The raw binary content of the file, base64-encoded.
-        session_id: The unique score session ID. Defaults to 'default'.
+        file_attachment: A structured object containing {"fileName": "string", "mimeType": "string", "base64Data": "string"}.
+        session_id:      The unique score session ID. Defaults to 'default'.
 
     Returns:
         JSON with keys: status, tracks_imported, key_signature, tempo.
     """
     session_id = _sanitize_arg(session_id)
-    if not base64Data:
-        return json.dumps({"status": "error", "error": "Missing base64Data argument."})
+    if not file_attachment or not isinstance(file_attachment, dict):
+        return json.dumps({"status": "error", "error": "Invalid or missing file_attachment argument."})
+        
+    b64_str = file_attachment.get("base64Data") or file_attachment.get("base64_data")
+    if not b64_str:
+        return json.dumps({"status": "error", "error": "Missing base64Data inside file_attachment."})
         
     import uuid
     unique_id = uuid.uuid4().hex
@@ -354,7 +358,7 @@ def import_midi_to_score(fileName: str, mimeType: str, base64Data: str, session_
     temp_file = temp_dir / f"temp_{unique_id}.mid"
     
     try:
-        content = _safe_decode_base64(base64Data)
+        content = _safe_decode_base64(b64_str)
         if not content.startswith(b"MThd"):
             return json.dumps({"status": "error", "error": "Invalid MIDI file: decoded content does not start with MThd header."})
         
@@ -373,19 +377,21 @@ def import_midi_to_score(fileName: str, mimeType: str, base64Data: str, session_
 
 
 @mcp.tool()
-def analyze_midi_file(fileName: str, mimeType: str, base64Data: str) -> str:
+def analyze_midi_file(file_attachment: dict) -> str:
     """Ingest a raw binary MIDI file attachment and extract track count, tempo, note count, and instruments.
 
     Args:
-        fileName:   The name of the file (e.g. 'melody.mid').
-        mimeType:   The MIME type of the file (e.g. 'audio/midi').
-        base64Data: The raw binary content of the file, base64-encoded.
+        file_attachment: A structured object containing {"fileName": "string", "mimeType": "string", "base64Data": "string"}.
 
     Returns:
         JSON with keys: status, track_count, tempo, note_count, instruments.
     """
-    if not base64Data:
-        return json.dumps({"status": "error", "error": "Missing base64Data argument."})
+    if not file_attachment or not isinstance(file_attachment, dict):
+        return json.dumps({"status": "error", "error": "Invalid or missing file_attachment argument."})
+        
+    b64_str = file_attachment.get("base64Data") or file_attachment.get("base64_data")
+    if not b64_str:
+        return json.dumps({"status": "error", "error": "Missing base64Data inside file_attachment."})
         
     import uuid
     unique_id = uuid.uuid4().hex
@@ -394,7 +400,7 @@ def analyze_midi_file(fileName: str, mimeType: str, base64Data: str) -> str:
     temp_file = temp_dir / f"temp_{unique_id}.mid"
     
     try:
-        content = _safe_decode_base64(base64Data)
+        content = _safe_decode_base64(b64_str)
         if not content.startswith(b"MThd"):
             return json.dumps({"status": "error", "error": "Invalid MIDI file: decoded content does not start with MThd header."})
         
