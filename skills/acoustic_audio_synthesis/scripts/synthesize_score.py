@@ -9,11 +9,31 @@ import argparse
 from pathlib import Path
 
 DURATION_MAP = {
+    "dotted whole": 6.0,
     "whole": 4.0,
+    "dotted half": 3.0,
     "half": 2.0,
+    "dotted quarter": 1.5,
     "quarter": 1.0,
+    "dotted eighth": 0.75,
     "eighth": 0.5,
-    "sixteenth": 0.25
+    "dotted sixteenth": 0.375,
+    "sixteenth": 0.25,
+    "dotted thirty-second": 0.1875,
+    "thirty-second": 0.125,
+    # Aliases
+    "dotted-whole": 6.0,
+    "dotted-half": 3.0,
+    "dotted-quarter": 1.5,
+    "dotted-eighth": 0.75,
+    "dotted-sixteenth": 0.375,
+    "dotted 16th": 0.375,
+    "dotted-16th": 0.375,
+    "16th": 0.25,
+    "dotted-thirty-second": 0.1875,
+    "dotted 32nd": 0.1875,
+    "dotted-32nd": 0.1875,
+    "32nd": 0.125
 }
 
 def pitch_to_midi(pitch_str):
