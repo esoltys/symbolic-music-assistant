@@ -23,6 +23,8 @@ This skill is triggered when the user requests to build, modify, add notes, or v
 - "Initialize a blank 4/4 score."
 - "Add a quarter note C4 to the score."
 - "Write a scale/melody to the score."
+- "Write a melody using ABC notation."
+- "Add tinyNotation: C4 D E F."
 - "Check the active score for voice-leading errors."
 - "Validate my composition."
 - "Are there any parallel fifths or octaves in the score?"

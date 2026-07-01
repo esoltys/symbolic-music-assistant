@@ -460,5 +460,61 @@ def test_tempo_and_track_filtering():
         state_file.unlink(missing_ok=True)
 
 
+def test_score_manager_add_abc():
+    from agents.music_assistant.agent import add_abc_to_score
+    from unittest.mock import MagicMock
+    
+    session_id = "test_abc_unit_sess"
+    
+    # 1. Init score
+    res = run_script("skills/score_construction/scripts/score_manager.py", ["init", "--time-signature", "4/4", "--key-signature", "C Major", "--session-id", session_id])
+    assert res.returncode == 0
+    
+    try:
+        # 2. Add notes via ABC notation subcommand directly
+        res = run_script("skills/score_construction/scripts/score_manager.py", [
+            "add-abc",
+            "--abc", "C D E F",
+            "--session-id", session_id
+        ])
+        assert res.returncode == 0
+        data = json.loads(res.stdout)
+        assert data["status"] == "success"
+        assert data["added_events_count"] == 4
+        
+        # Verify JSON content
+        state_file = PROJECT_ROOT / "skills" / "score_construction" / "assets" / f"score_{session_id}.json"
+        assert state_file.is_file()
+        with open(state_file, "r") as f:
+            state = json.load(f)
+        events = state["parts"][0]["measures"][0]["events"]
+        assert len(events) == 4
+        assert events[0]["pitches"] == ["C4"]
+        assert events[3]["pitches"] == ["F4"]
+        
+        # 3. Add notes via TinyNotation using agent tool wrapper
+        mock_ctx = MagicMock()
+        mock_ctx.session.id = session_id
+        
+        # Use TinyNotation to add G A B c
+        tool_res = add_abc_to_score(mock_ctx, abc="tinyNotation: G A B c")
+        tool_data = json.loads(tool_res)
+        assert tool_data["status"] == "success"
+        assert tool_data["added_events_count"] == 4
+        
+        # Verify that measure 2 was created (since G A B c overflows measure 1)
+        with open(state_file, "r") as f:
+            state = json.load(f)
+        measures = state["parts"][0]["measures"]
+        assert len(measures) == 2
+        assert measures[1]["number"] == 2
+        assert measures[1]["events"][0]["pitches"] == ["G3"]  # TinyNotation G defaults to G3
+        
+    finally:
+        state_file = PROJECT_ROOT / "skills" / "score_construction" / "assets" / f"score_{session_id}.json"
+        state_file.unlink(missing_ok=True)
+
+
+
 
 
