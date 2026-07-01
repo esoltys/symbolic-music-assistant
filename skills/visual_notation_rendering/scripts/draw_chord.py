@@ -211,7 +211,36 @@ def main():
             # Parse pitches
             pitches_list = [p.strip() for p in args.pitches.split(",") if p.strip()]
             if not pitches_list:
-                raise ValueError("Pitches are required for piano keyboard rendering.")
+                if not args.chord_name:
+                    raise ValueError("Pitches or chord_name are required for piano keyboard rendering.")
+                
+                # Try to parse the chord name using music21
+                import re
+                import music21
+                name = args.chord_name.strip()
+                name = re.sub(r'\b[Mm]ajor\b', '', name)
+                name = re.sub(r'\b[Mm]inor\b', 'm', name)
+                name = name.replace(' ', '')
+                
+                try:
+                    h = music21.harmony.ChordSymbol(name)
+                    root_midi = h.root().midi
+                    
+                    # Find octave shift to bring the root into range [48, 59]
+                    octave_offset = 0
+                    if root_midi < 48:
+                        while root_midi + octave_offset * 12 < 48:
+                            octave_offset += 1
+                    elif root_midi > 59:
+                        while root_midi + octave_offset * 12 > 59:
+                            octave_offset -= 1
+                            
+                    for p in h.pitches:
+                        from music21.pitch import Pitch
+                        shifted_p = Pitch(p.midi + octave_offset * 12)
+                        pitches_list.append(shifted_p.nameWithOctave)
+                except Exception as e:
+                    raise ValueError(f"Could not resolve chord name '{args.chord_name}' to piano pitches: {e}")
                 
             midi_notes = []
             for p in pitches_list:
