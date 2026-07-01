@@ -515,6 +515,64 @@ def test_score_manager_add_abc():
         state_file.unlink(missing_ok=True)
 
 
+def test_dotted_duration_and_tempo_import():
+    # 1. Test get_duration_name for dotted values
+    from skills.score_construction.scripts.score_manager import get_duration_name
+    assert get_duration_name(1.5) == "dotted quarter"
+    assert get_duration_name(3.0) == "dotted half"
+    assert get_duration_name(0.75) == "dotted eighth"
+    assert get_duration_name(0.375) == "dotted sixteenth"
+
+    # 2. Test import-midi with tempo changes
+    from music21 import stream, tempo, meter, note
+    import tempfile
+    import os
+    
+    s = stream.Score()
+    p = stream.Part()
+    # Create 2 measures, 4/4
+    m1 = stream.Measure(number=1)
+    m1.timeSignature = meter.TimeSignature('4/4')
+    m1.append(note.Note('C4', type='whole'))
+    m1.insert(0.0, tempo.MetronomeMark(number=120))
+    p.append(m1)
+    
+    m2 = stream.Measure(number=2)
+    m2.timeSignature = meter.TimeSignature('4/4')
+    m2.append(note.Note('E4', type='whole'))
+    m2.insert(0.0, tempo.MetronomeMark(number=140))
+    p.append(m2)
+    s.append(p)
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        midi_path = os.path.join(tmpdir, "test_tempo.mid")
+        s.write('midi', fp=midi_path)
+        
+        session_id = "test_unit_tempo_import"
+        res = run_script("skills/score_construction/scripts/score_manager.py", [
+            "import-midi",
+            "--midi-path", midi_path,
+            "--session-id", session_id
+        ])
+        assert res.returncode == 0
+        
+        state_file = PROJECT_ROOT / "skills" / "score_construction" / "assets" / f"score_{session_id}.json"
+        assert state_file.is_file()
+        try:
+            with open(state_file, "r") as f:
+                state = json.load(f)
+            tempos = state["tempos"]
+            # Should have two tempos: one at 0.0 (120 bpm) and one at 4.0 (140 bpm)
+            assert len(tempos) == 2
+            assert tempos[0]["offset"] == 0.0
+            assert tempos[0]["bpm"] == 120.0
+            assert tempos[1]["offset"] == 4.0
+            assert tempos[1]["bpm"] == 140.0
+        finally:
+            state_file.unlink(missing_ok=True)
+
+
+
 
 
 
