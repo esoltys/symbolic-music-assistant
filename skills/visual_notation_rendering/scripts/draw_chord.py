@@ -209,6 +209,7 @@ def draw_piano_keyboard(midi_notes, title=""):
     # Setup coordinates and remove axes
     ax.set_xlim(-0.2, len(white_keys) + 0.2)
     ax.set_ylim(-0.2, 4.5)
+    ax.set_aspect('equal')
     ax.axis('off')
     
     if title:
@@ -307,6 +308,7 @@ def draw_guitar_chord(voicing, chord_name=""):
         
     ax.set_xlim(-0.8, 5.8)
     ax.set_ylim(-0.5, 4.8)
+    ax.set_aspect('equal')
     ax.axis('off')
     
     if chord_name:
