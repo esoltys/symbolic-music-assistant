@@ -5,8 +5,8 @@ flowchart TD
     S["🗂️ Session State\nin-memory per session"]
     MCP["🔌 MCP Server\nmcp_server.py\nstdio transport"]
 
-    subgraph Tools ["18 Registered Tools"]
-        T1["🎼 Score Construction\ninitialize · add_note · add_abc · transpose\nexport_midi · import_midi\nset_tempo · assign_instrument\nvalidate_voice_leading"]
+    subgraph Tools ["23 Registered Tools"]
+        T1["🎼 Score Construction\ninitialize · add_note · add_abc · delete_note · edit_note · insert_measure · delete_measure · transpose · transpose_part · export_midi · import_midi · set_tempo · assign_instrument · validate_voice_leading"]
         T2["🎵 Music Theory\nevaluate_interval · list_scale_pitches\nanalyze_chord · detect_key"]
         T3["📊 MIDI Analytics\nanalyze_midi_file"]
         T4["🖼️ Visual Notation\nrender_notation"]
@@ -42,4 +42,4 @@ flowchart TD
     SK4 --> L1 & L3
     SK5 --> L4
 
-    MCP -->|"exposes all 18 tools across 5 skills"| Tools
+    MCP -->|"exposes all 23 tools across 5 skills"| Tools
