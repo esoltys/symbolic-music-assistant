@@ -5,7 +5,7 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/) [![google-adk](https://img.shields.io/badge/ADK-2.3%2B-orange)](https://adk.dev/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/esoltys/cadence-music-assistant/blob/main/LICENSE)
 
-![Agent Playground Screenshot](https://raw.githubusercontent.com/esoltys/cadence-music-assistant/main/examples/adk_screenshot_01.png)
+![Agent Playground Screenshot](docs/adk_screenshot_01.png)
 
 ---
 
@@ -178,6 +178,14 @@ Turn your active score into visual artifacts for learning, sharing, or further e
 | Score timeline plot | *"Render the active score as a timeline graph."* |
 | MusicXML export | *"Export the score as MusicXML for MuseScore."* |
 | Filtered render | *"Render only the melody and bassline tracks."* |
+
+#### Visualizer Examples
+
+The assistant renders beautiful visual aids for piano keys and guitar frets when querying chords, as well as multi-track piano rolls of scores:
+
+| Piano Roll | Piano Keyboard (C7) | Guitar Fretboard (C Major) |
+| :---: | :---: | :---: |
+| ![Piano Roll Sample](docs/piano_roll_sample.png) | ![Piano C7 Chord](docs/chord_piano_c7.png) | ![Guitar C Major Chord](docs/chord_guitar_c_major.png) |
 
 ### Skill 5 — Acoustic Audio Synthesis
 
