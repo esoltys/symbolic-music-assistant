@@ -303,6 +303,25 @@ def add_note_to_score(pitch: str, duration: str, part_id: str = "melody", sessio
 
 
 @mcp.tool()
+def add_abc_to_score(abc: str, part_id: str = "melody", session_id: str = "default") -> str:
+    """Add a sequence of notes, chords, or rests using ABC notation or TinyNotation.
+
+    Args:
+        abc:        ABC notation string (e.g. 'C D E F') or TinyNotation string (starting with 'tinyNotation:').
+        part_id:    ID of the part/track (e.g. 'melody', 'bassline'). Defaults to 'melody'.
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, added_events_count, added_events, last_measure_number.
+    """
+    abc = _sanitize_arg(abc, max_len=4096)
+    part_id = _sanitize_arg(part_id)
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    return _run_script(script, ["add-abc", "--abc", abc, "--part-id", part_id, "--session-id", session_id])
+
+
+@mcp.tool()
 def transpose_score(semitones: int, session_id: str = "default") -> str:
     """Transpose all notes/chords and key signatures in the active score up or down by a given number of semitones.
 
@@ -316,6 +335,105 @@ def transpose_score(semitones: int, session_id: str = "default") -> str:
     session_id = _sanitize_arg(session_id)
     script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
     return _run_script(script, ["transpose", "--semitones", str(semitones), "--session-id", session_id])
+
+
+@mcp.tool()
+def delete_note_from_score(measure: int, event_index: int, part_id: str = "melody", remove_completely: bool = False, session_id: str = "default") -> str:
+    """Deletes/removes a note or chord at a specific position in the score.
+
+    Args:
+        measure:           The 1-indexed measure number of the note to delete.
+        event_index:       The 0-indexed index of the note/event within the measure.
+        part_id:           The ID of the part/track (default: 'melody').
+        remove_completely: If True, deletes the note event completely. If False, replaces it with a rest.
+        session_id:        The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, action, part_id, measure, event_index, action_detail.
+    """
+    part_id = _sanitize_arg(part_id)
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    cmd = ["delete-note", "--measure", str(measure), "--event-index", str(event_index), "--part-id", part_id, "--session-id", session_id]
+    if remove_completely:
+        cmd.append("--remove-completely")
+    return _run_script(script, cmd)
+
+
+@mcp.tool()
+def edit_note_in_score(measure: int, event_index: int, part_id: str = "melody", pitch: str = "", duration: str = "", session_id: str = "default") -> str:
+    """Edits a note/chord's pitch and/or duration at a specific position in the score.
+
+    Args:
+        measure:    The 1-indexed measure number of the note to edit.
+        event_index: The 0-indexed index of the note/event within the measure.
+        part_id:     The ID of the part/track (default: 'melody').
+        pitch:       The new pitch name (e.g. 'E4', 'rest', or 'E4,G4,B4'). Leave empty if unchanged.
+        duration:    The new duration name (e.g. 'quarter', 'half', 'eighth'). Leave empty if unchanged.
+        session_id:  The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, action, part_id, measure, event_index, updated_event.
+    """
+    part_id = _sanitize_arg(part_id)
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    cmd = ["edit-note", "--measure", str(measure), "--event-index", str(event_index), "--part-id", part_id, "--session-id", session_id]
+    if pitch:
+        cmd += ["--pitch", _sanitize_arg(pitch)]
+    if duration:
+        cmd += ["--duration", _sanitize_arg(duration)]
+    return _run_script(script, cmd)
+
+
+@mcp.tool()
+def insert_measure_into_score(at: int, session_id: str = "default") -> str:
+    """Inserts a blank measure at a given position across all parts/tracks in the active score.
+
+    Args:
+        at:         The 1-indexed measure number before which to insert the blank measure.
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, action, inserted_at.
+    """
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    return _run_script(script, ["insert-measure", "--at", str(at), "--session-id", session_id])
+
+
+@mcp.tool()
+def delete_measure_from_score(measure: int, session_id: str = "default") -> str:
+    """Deletes a measure at a given position across all parts/tracks in the active score.
+
+    Args:
+        measure:    The 1-indexed measure number to delete.
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, action, deleted_measure.
+    """
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    return _run_script(script, ["delete-measure", "--measure", str(measure), "--session-id", session_id])
+
+
+@mcp.tool()
+def transpose_part_in_score(part_id: str, semitones: int, session_id: str = "default") -> str:
+    """Transposes all pitches in a specific part/track of the score by a number of semitones.
+
+    Args:
+        part_id:    The ID of the part/track to transpose (e.g. 'melody', 'bassline').
+        semitones:  Number of semitones to transpose (e.g. 2, -3).
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, action, part_id, semitones.
+    """
+    part_id = _sanitize_arg(part_id)
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    return _run_script(script, ["transpose-part", "--part-id", part_id, "--semitones", str(semitones), "--session-id", session_id])
 
 
 @mcp.tool()

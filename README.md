@@ -66,9 +66,9 @@ The following concepts from the "AI Agents: Intensive Vibe Coding Course" are de
 
 | Concept | Where |
 |---|---|
-| **Agent / Multi-agent system (ADK)** | [`agents/music_assistant/agent.py`](https://github.com/esoltys/cadence-music-assistant/blob/main/agents/music_assistant/agent.py) — `root_agent = Agent(...)` with 17 registered tools |
+| **Agent / Multi-agent system (ADK)** | [`agents/music_assistant/agent.py`](https://github.com/esoltys/cadence-music-assistant/blob/main/agents/music_assistant/agent.py) — `root_agent = Agent(...)` with 23 registered tools |
 | **Agent Skills (agents-cli)** | 5 skill directories under `skills/`, `agents-cli-manifest.yaml`, full `eval/playground/deploy` workflow |
-| **MCP Server** | [`mcp_server.py`](https://github.com/esoltys/cadence-music-assistant/blob/main/mcp_server.py) — exposes all 17 music theory, composition, visualization, and synthesis tools via stdio MCP for external clients |
+| **MCP Server** | [`mcp_server.py`](https://github.com/esoltys/cadence-music-assistant/blob/main/mcp_server.py) — exposes all 23 music theory, composition, visualization, and synthesis tools via stdio MCP for external clients |
 | **Security features** | Path traversal guard (`_safe_resolve_path`), input length caps (`_sanitize_arg`), CORS control, session isolation, privacy-preserving telemetry |
 | **Deployability** | `Dockerfile`, Cloud Run deployment via `agents-cli deploy`, Terraform scaffold available |
 | **Antigravity** | Used throughout development — see [`GEMINI.md`](https://github.com/esoltys/cadence-music-assistant/blob/main/GEMINI.md) and video demo |
@@ -132,10 +132,15 @@ Build, edit, and export musical scores. The agent maintains your **active score 
 |---|---|
 | Initialize a score | *"Create a blank 4/4 score in G Major."* |
 | Add notes, chords, rests | *"Add a dotted quarter C4, then an eighth rest to the melody."* |
+| Add via ABC / TinyNotation | *"Add the melody C D E F [CEG] using ABC notation."* or *"Add tinyNotation: C4 D E F."* |
 | Build multi-part scores | *"Add a bassline part and put a whole note G2 on measure 1."* |
+| Edit existing notes | *"Edit the note at measure 1 index 0 in the melody to E4 with half duration."* |
+| Delete notes | *"Delete the note at measure 1 index 2 from the melody."* or *"Replace the note at measure 2 index 0 with a rest."* |
+| Insert / Delete measures | *"Insert a blank measure at index 2."* or *"Delete measure 3."* |
 | Set tempo | *"Set the tempo to 120 BPM."* |
 | Assign instruments | *"Assign the bassline part to Acoustic Bass (program 32)."* |
-| Transpose | *"Transpose the score up a minor third."* |
+| Transpose entire score | *"Transpose the score up a minor third."* |
+| Transpose specific part | *"Transpose only the bassline part up 2 semitones."* |
 | Validate voice-leading | *"Check for parallel fifths and octaves."* |
 | Export MIDI | *"Export the score as a MIDI file."* |
 | Import MIDI | *"Import the attached MIDI file into the active score."* |
@@ -188,13 +193,19 @@ Hear what you've built, without opening a DAW.
 
 ### Complete Tool Inventory
 
-The agent has 17 registered tools across the 5 skill areas:
+The agent has 23 registered tools across the 5 skill areas:
 
 | Tool | Skill Area |
 |---|---|
 | `initialize_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
 | `add_note_to_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `add_abc_to_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `delete_note_from_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `edit_note_in_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `insert_measure_into_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `delete_measure_from_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
 | `transpose_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
+| `transpose_part_in_score` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
 | `set_score_tempo` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
 | `assign_instrument_to_track` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
 | `validate_voice_leading` | [Score Construction](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/score_construction/SKILL.md) |
@@ -222,7 +233,7 @@ cadence-music-assistant/
 │   └── app_utils/                 # Telemetry and typing helpers
 ├── agents/                        # ADK agent package
 │   ├── agent.py                   # Wrapper to expose music assistant agent
-│   └── music_assistant/           # Core agent: 17 tools + security helpers
+│   └── music_assistant/           # Core agent: 18 tools + security helpers
 ├── skills/                        # 5 custom skill script directories
 │   ├── score_construction/        # Score build, edit, export, validate
 │   ├── music_theory_query/        # Intervals, scales, chords, key detection

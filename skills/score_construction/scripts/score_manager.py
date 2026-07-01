@@ -77,6 +77,12 @@ def main():
     add_parser.add_argument("--part-id", default="melody", help="ID of the part/track (default 'melody')")
     add_parser.add_argument("--session-id", required=True, help="Unique ADK runtime session ID")
 
+    # add-abc sub-command
+    add_abc_parser = subparsers.add_parser("add-abc", help="Add notes using ABC notation or TinyNotation.")
+    add_abc_parser.add_argument("--abc", required=True, help="ABC notation or TinyNotation string")
+    add_abc_parser.add_argument("--part-id", default="melody", help="ID of the part/track (default 'melody')")
+    add_abc_parser.add_argument("--session-id", required=True, help="Unique ADK runtime session ID")
+
     # transpose sub-command
     transpose_parser = subparsers.add_parser("transpose", help="Transpose the active score.")
     transpose_parser.add_argument("--semitones", type=int, required=True, help="Number of semitones to transpose (e.g., 2, -3)")
@@ -103,6 +109,39 @@ def main():
     tempo_parser.add_argument("--bpm", type=float, required=True, help="Tempo in beats per minute")
     tempo_parser.add_argument("--offset", type=float, default=0.0, help="Beat offset from start (default 0.0)")
     tempo_parser.add_argument("--session-id", required=True, help="Unique ADK runtime session ID")
+
+    # delete-note sub-command
+    delete_note_parser = subparsers.add_parser("delete-note", help="Delete a note/chord/rest from a measure.")
+    delete_note_parser.add_argument("--measure", type=int, required=True, help="1-indexed measure number")
+    delete_note_parser.add_argument("--event-index", type=int, required=True, help="0-indexed event number within the measure")
+    delete_note_parser.add_argument("--part-id", default="melody", help="ID of the part/track (default 'melody')")
+    delete_note_parser.add_argument("--remove-completely", action="store_true", help="Remove event completely instead of replacing with rest")
+    delete_note_parser.add_argument("--session-id", required=True, help="Unique ADK runtime session ID")
+
+    # edit-note sub-command
+    edit_note_parser = subparsers.add_parser("edit-note", help="Edit a note's pitch and/or duration in a measure.")
+    edit_note_parser.add_argument("--measure", type=int, required=True, help="1-indexed measure number")
+    edit_note_parser.add_argument("--event-index", type=int, required=True, help="0-indexed event number within the measure")
+    edit_note_parser.add_argument("--part-id", default="melody", help="ID of the part/track (default 'melody')")
+    edit_note_parser.add_argument("--pitch", help="New pitch or comma-separated chord (or 'rest')")
+    edit_note_parser.add_argument("--duration", help="New duration name (e.g. 'quarter', 'half')")
+    edit_note_parser.add_argument("--session-id", required=True, help="Unique ADK runtime session ID")
+
+    # insert-measure sub-command
+    insert_measure_parser = subparsers.add_parser("insert-measure", help="Insert a blank measure at a given position across all parts.")
+    insert_measure_parser.add_argument("--at", type=int, required=True, help="1-indexed measure number before which to insert")
+    insert_measure_parser.add_argument("--session-id", required=True, help="Unique ADK runtime session ID")
+
+    # delete-measure sub-command
+    delete_measure_parser = subparsers.add_parser("delete-measure", help="Delete a measure at a given position across all parts.")
+    delete_measure_parser.add_argument("--measure", type=int, required=True, help="1-indexed measure number to delete")
+    delete_measure_parser.add_argument("--session-id", required=True, help="Unique ADK runtime session ID")
+
+    # transpose-part sub-command
+    transpose_part_parser = subparsers.add_parser("transpose-part", help="Transpose all notes in a specific part.")
+    transpose_part_parser.add_argument("--part-id", required=True, help="ID of the part to transpose")
+    transpose_part_parser.add_argument("--semitones", type=int, required=True, help="Number of semitones to transpose")
+    transpose_part_parser.add_argument("--session-id", required=True, help="Unique ADK runtime session ID")
 
     args = parser.parse_args()
 
@@ -221,6 +260,135 @@ def main():
                 "part_id": part_id,
                 "added_event": new_event,
                 "measure_number": last_measure["number"]
+            }, indent=2))
+            sys.exit(0)
+
+        elif args.command == "add-abc":
+            if not state_file.is_file():
+                raise FileNotFoundError(
+                    "Score has not been initialized yet. Run 'init' first."
+                )
+                
+            with open(state_file, "r", encoding="utf-8") as f:
+                state = json.load(f)
+                
+            abc_input = args.abc.strip()
+            
+            # Find or create part
+            part_id = args.part_id.strip()
+            part = None
+            for p in state.get("parts", []):
+                if p["id"] == part_id:
+                    part = p
+                    break
+            
+            if part is None:
+                part = {
+                    "id": part_id,
+                    "name": part_id.capitalize(),
+                    "clef": "bass" if "bass" in part_id.lower() else "treble",
+                    "measures": [
+                        {
+                            "number": 1,
+                            "events": []
+                        }
+                    ]
+                }
+                if "parts" not in state:
+                    state["parts"] = []
+                state["parts"].append(part)
+                
+            # Parse time signature and determine measure limits
+            beats_per_measure = parse_time_signature(state.get("time_signature", "4/4"))
+            
+            # Auto-detect tinyNotation vs ABC notation
+            if abc_input.startswith("tinyNotation:"):
+                try:
+                    s = converter.parse(abc_input)
+                except Exception as parse_err:
+                    raise ValueError(f"Failed to parse TinyNotation: {parse_err}")
+            else:
+                # If ABC notation, ensure it has headers.
+                # If it doesn't contain standard headers, auto-prepend them.
+                lines = [line.strip() for line in abc_input.splitlines() if line.strip()]
+                has_x = any(line.startswith("X:") for line in lines)
+                has_k = any(line.startswith("K:") for line in lines)
+                has_l = any(line.startswith("L:") for line in lines)
+                
+                header = ""
+                if not has_x:
+                    header += "X:1\n"
+                if not has_k:
+                    # Derive key from score state
+                    score_key = state.get("key_signature", "C Major")
+                    ks_parts = score_key.strip().split()
+                    tonic = ks_parts[0]
+                    mode = ks_parts[1].lower() if len(ks_parts) > 1 else "major"
+                    abc_key = tonic
+                    if mode == "minor":
+                        abc_key += "m"
+                    header += f"K:{abc_key}\n"
+                if not has_l:
+                    header += "L:1/4\n" # Default to quarter note
+                
+                full_abc_str = header + abc_input
+                try:
+                    s = converter.parse(full_abc_str, format="abc")
+                except Exception as parse_err:
+                    raise ValueError(f"Failed to parse ABC notation: {parse_err}")
+            
+            # Extract notes, chords, rests
+            elements = list(s.recurse().getElementsByClass([note.Note, chord.Chord, note.Rest]))
+            if not elements:
+                raise ValueError("No notes, chords, or rests found in the parsed notation.")
+                
+            added_events = []
+            measures = part["measures"]
+            last_measure = measures[-1]
+            
+            for el in elements:
+                # Get duration name
+                duration_name = get_duration_name(el.quarterLength)
+                added_dur = DURATION_MAP.get(duration_name, 1.0)
+                
+                # Get pitches
+                if isinstance(el, note.Note):
+                    pitches = [el.pitch.nameWithOctave]
+                elif isinstance(el, chord.Chord):
+                    pitches = [p.nameWithOctave for p in el.pitches]
+                else: # Rest
+                    pitches = ["rest"]
+                    
+                # Calculate current beats in last measure
+                current_beats = sum(DURATION_MAP.get(e["duration"].lower(), 1.0) for e in last_measure["events"])
+                
+                # Check for overflow
+                if current_beats + added_dur - 1e-5 > beats_per_measure:
+                    # Create a new measure
+                    new_measure = {
+                        "number": len(measures) + 1,
+                        "events": []
+                    }
+                    measures.append(new_measure)
+                    last_measure = new_measure
+                
+                new_event = {
+                    "pitches": pitches,
+                    "duration": duration_name
+                }
+                last_measure["events"].append(new_event)
+                added_events.append(new_event)
+                
+            with open(state_file, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+                
+            print(json.dumps({
+                "status": "success",
+                "action": "add-abc",
+                "part_id": part_id,
+                "added_events_count": len(added_events),
+                "added_events": added_events,
+                "last_measure_number": last_measure["number"]
             }, indent=2))
             sys.exit(0)
 
@@ -599,6 +767,217 @@ def main():
                 "action": "set-tempo",
                 "bpm": bpm,
                 "offset": offset
+            }, indent=2))
+            sys.exit(0)
+
+        elif args.command == "delete-note":
+            if not state_file.is_file():
+                raise FileNotFoundError("Score has not been initialized yet.")
+                
+            with open(state_file, "r", encoding="utf-8") as f:
+                state = json.load(f)
+                
+            part_id = args.part_id.strip()
+            part = None
+            for p in state.get("parts", []):
+                if p["id"] == part_id:
+                    part = p
+                    break
+                    
+            if part is None:
+                raise ValueError(f"Part ID '{part_id}' not found in score.")
+                
+            measure = None
+            for m in part.get("measures", []):
+                if m["number"] == args.measure:
+                    measure = m
+                    break
+                    
+            if measure is None:
+                raise ValueError(f"Measure number {args.measure} not found in part '{part_id}'.")
+                
+            events = measure.get("events", [])
+            if args.event_index < 0 or args.event_index >= len(events):
+                raise ValueError(f"Event index {args.event_index} out of range for measure {args.measure} (0 to {len(events)-1}).")
+                
+            removed_event = events[args.event_index]
+            if args.remove_completely:
+                events.pop(args.event_index)
+                action_detail = "removed"
+            else:
+                events[args.event_index]["pitches"] = ["rest"]
+                action_detail = "replaced_with_rest"
+                
+            with open(state_file, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+                
+            print(json.dumps({
+                "status": "success",
+                "action": "delete-note",
+                "part_id": part_id,
+                "measure": args.measure,
+                "event_index": args.event_index,
+                "action_detail": action_detail,
+                "event": removed_event
+            }, indent=2))
+            sys.exit(0)
+
+        elif args.command == "edit-note":
+            if not state_file.is_file():
+                raise FileNotFoundError("Score has not been initialized yet.")
+                
+            with open(state_file, "r", encoding="utf-8") as f:
+                state = json.load(f)
+                
+            part_id = args.part_id.strip()
+            part = None
+            for p in state.get("parts", []):
+                if p["id"] == part_id:
+                    part = p
+                    break
+                    
+            if part is None:
+                raise ValueError(f"Part ID '{part_id}' not found in score.")
+                
+            measure = None
+            for m in part.get("measures", []):
+                if m["number"] == args.measure:
+                    measure = m
+                    break
+                    
+            if measure is None:
+                raise ValueError(f"Measure number {args.measure} not found in part '{part_id}'.")
+                
+            events = measure.get("events", [])
+            if args.event_index < 0 or args.event_index >= len(events):
+                raise ValueError(f"Event index {args.event_index} out of range for measure {args.measure} (0 to {len(events)-1}).")
+                
+            event = events[args.event_index]
+            if args.pitch:
+                pitch_input = args.pitch.strip()
+                if pitch_input.lower() == "rest" or not pitch_input:
+                    event["pitches"] = ["rest"]
+                else:
+                    event["pitches"] = [p.strip() for p in pitch_input.split(",") if p.strip()]
+            if args.duration:
+                if args.duration.lower() not in DURATION_MAP:
+                    raise ValueError(f"Invalid duration: {args.duration}. Must be one of: {list(DURATION_MAP.keys())}")
+                event["duration"] = args.duration.lower()
+                
+            with open(state_file, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+                
+            print(json.dumps({
+                "status": "success",
+                "action": "edit-note",
+                "part_id": part_id,
+                "measure": args.measure,
+                "event_index": args.event_index,
+                "updated_event": event
+            }, indent=2))
+            sys.exit(0)
+
+        elif args.command == "insert-measure":
+            if not state_file.is_file():
+                raise FileNotFoundError("Score has not been initialized yet.")
+                
+            with open(state_file, "r", encoding="utf-8") as f:
+                state = json.load(f)
+                
+            at_pos = args.at
+            if at_pos < 1:
+                raise ValueError("Insert position must be 1-indexed (>= 1).")
+                
+            for part in state.get("parts", []):
+                measures = part.get("measures", [])
+                
+                for m in measures:
+                    if m["number"] >= at_pos:
+                        m["number"] += 1
+                        
+                new_measure = {
+                    "number": at_pos,
+                    "events": []
+                }
+                measures.append(new_measure)
+                part["measures"] = sorted(measures, key=lambda x: x["number"])
+                
+            with open(state_file, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+                
+            print(json.dumps({
+                "status": "success",
+                "action": "insert-measure",
+                "inserted_at": at_pos
+            }, indent=2))
+            sys.exit(0)
+
+        elif args.command == "delete-measure":
+            if not state_file.is_file():
+                raise FileNotFoundError("Score has not been initialized yet.")
+                
+            with open(state_file, "r", encoding="utf-8") as f:
+                state = json.load(f)
+                
+            del_pos = args.measure
+            if del_pos < 1:
+                raise ValueError("Measure number to delete must be 1-indexed (>= 1).")
+                
+            for part in state.get("parts", []):
+                measures = part.get("measures", [])
+                part["measures"] = [m for m in measures if m["number"] != del_pos]
+                
+                for m in part["measures"]:
+                    if m["number"] > del_pos:
+                        m["number"] -= 1
+                        
+            with open(state_file, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+                
+            print(json.dumps({
+                "status": "success",
+                "action": "delete-measure",
+                "deleted_measure": del_pos
+            }, indent=2))
+            sys.exit(0)
+
+        elif args.command == "transpose-part":
+            if not state_file.is_file():
+                raise FileNotFoundError("Score has not been initialized yet.")
+                
+            with open(state_file, "r", encoding="utf-8") as f:
+                state = json.load(f)
+                
+            part_id = args.part_id.strip()
+            part = None
+            for p in state.get("parts", []):
+                if p["id"] == part_id:
+                    part = p
+                    break
+                    
+            if part is None:
+                raise ValueError(f"Part ID '{part_id}' not found in score.")
+                
+            semitones = args.semitones
+            for measure in part.get("measures", []):
+                for event in measure.get("events", []):
+                    pitches = event.get("pitches", ["rest"])
+                    if pitches and "rest" not in [p.lower() for p in pitches]:
+                        transposed_pitches = []
+                        for p in pitches:
+                            m21_pitch = pitch.Pitch(p)
+                            transposed_pitch = m21_pitch.transpose(semitones)
+                            transposed_pitches.append(transposed_pitch.nameWithOctave)
+                        event["pitches"] = transposed_pitches
+                        
+            with open(state_file, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+                
+            print(json.dumps({
+                "status": "success",
+                "action": "transpose-part",
+                "part_id": part_id,
+                "semitones": semitones
             }, indent=2))
             sys.exit(0)
 

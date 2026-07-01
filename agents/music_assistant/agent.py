@@ -202,6 +202,36 @@ def add_note_to_score(tool_context: ToolContext, pitch: str, duration: str, part
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute score manager script: {e}"})
 
+def add_abc_to_score(tool_context: ToolContext, abc: str, part_id: str = "melody") -> str:
+    """Adds a sequence of notes, chords, or rests to the active score using ABC notation or TinyNotation.
+
+    Args:
+        tool_context: The tool execution context containing session data.
+        abc: The ABC notation string (e.g. 'C D E F' or chords '[CEG]') or TinyNotation string (must start with 'tinyNotation:').
+        part_id: The ID of the part/track (e.g. 'melody', 'bassline'). Defaults to 'melody'.
+
+    Returns:
+        A JSON string containing the status, number of added events, list of added events, and last measure number.
+    """
+    script_path = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    abc = _sanitize_arg(abc, max_len=4096)
+    part_id = _sanitize_arg(part_id)
+    session_id = tool_context.session.id
+    
+    python_exe = sys.executable or "python"
+    try:
+        result = subprocess.run(
+            [python_exe, str(script_path), "add-abc", "--abc", abc, "--part-id", part_id, "--session-id", session_id],
+            capture_output=True,
+            text=True,
+            check=False,
+            stdin=subprocess.DEVNULL
+        )
+        return (result.stdout or result.stderr or 
+                json.dumps({"status": "error", "error": "No output from score manager script."}))
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to execute score manager script: {e}"})
+
 def transpose_score(tool_context: ToolContext, semitones: int) -> str:
     """Transposes all notes and key signatures in the active score up or down by a number of semitones.
 
@@ -228,6 +258,179 @@ def transpose_score(tool_context: ToolContext, semitones: int) -> str:
                 json.dumps({"status": "error", "error": "No output from score transposition script."}))
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute score transposition script: {e}"})
+
+
+def delete_note_from_score(tool_context: ToolContext, measure: int, event_index: int, part_id: str = "melody", remove_completely: bool = False) -> str:
+    """Deletes/removes a note or chord at a specific position in the score.
+
+    Args:
+        tool_context: The tool execution context containing session data.
+        measure: The 1-indexed measure number of the note to delete.
+        event_index: The 0-indexed index of the note/event within the measure.
+        part_id: The ID of the part/track (default: 'melody').
+        remove_completely: If True, deletes the note event completely (causing subsequent notes to shift left). If False (default), replaces the note with a rest of the same duration.
+
+    Returns:
+        A JSON string containing the status and deletion details.
+    """
+    script_path = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    part_id = _sanitize_arg(part_id)
+    session_id = tool_context.session.id
+    
+    python_exe = sys.executable or "python"
+    cmd = [
+        python_exe, str(script_path), "delete-note",
+        "--measure", str(measure),
+        "--event-index", str(event_index),
+        "--part-id", part_id,
+        "--session-id", session_id
+    ]
+    if remove_completely:
+        cmd.append("--remove-completely")
+        
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            stdin=subprocess.DEVNULL
+        )
+        return (result.stdout or result.stderr or 
+                json.dumps({"status": "error", "error": "No output from score manager script."}))
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to execute score manager script: {e}"})
+
+
+def edit_note_in_score(tool_context: ToolContext, measure: int, event_index: int, part_id: str = "melody", pitch: str = None, duration: str = None) -> str:
+    """Edits a note/chord's pitch and/or duration at a specific position in the score.
+
+    Args:
+        tool_context: The tool execution context containing session data.
+        measure: The 1-indexed measure number of the note to edit.
+        event_index: The 0-indexed index of the note/event within the measure.
+        part_id: The ID of the part/track (default: 'melody').
+        pitch: The new pitch name (e.g. 'E4', 'rest', or a comma-separated chord like 'E4,G4,B4'). Omit or pass None to leave unchanged.
+        duration: The new duration name (e.g. 'quarter', 'half', 'eighth'). Omit or pass None to leave unchanged.
+
+    Returns:
+        A JSON string containing the status and details of the edit.
+    """
+    script_path = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    part_id = _sanitize_arg(part_id)
+    session_id = tool_context.session.id
+    
+    python_exe = sys.executable or "python"
+    cmd = [
+        python_exe, str(script_path), "edit-note",
+        "--measure", str(measure),
+        "--event-index", str(event_index),
+        "--part-id", part_id,
+        "--session-id", session_id
+    ]
+    if pitch:
+        cmd += ["--pitch", _sanitize_arg(pitch)]
+    if duration:
+        cmd += ["--duration", _sanitize_arg(duration)]
+        
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            stdin=subprocess.DEVNULL
+        )
+        return (result.stdout or result.stderr or 
+                json.dumps({"status": "error", "error": "No output from score manager script."}))
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to execute score manager script: {e}"})
+
+
+def insert_measure_into_score(tool_context: ToolContext, at: int) -> str:
+    """Inserts a blank measure at a given position across all parts/tracks in the active score.
+
+    Args:
+        tool_context: The tool execution context containing session data.
+        at: The 1-indexed measure number before which to insert the blank measure.
+
+    Returns:
+        A JSON string containing the status and position of insertion.
+    """
+    script_path = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    session_id = tool_context.session.id
+    
+    python_exe = sys.executable or "python"
+    try:
+        result = subprocess.run(
+            [python_exe, str(script_path), "insert-measure", "--at", str(at), "--session-id", session_id],
+            capture_output=True,
+            text=True,
+            check=False,
+            stdin=subprocess.DEVNULL
+        )
+        return (result.stdout or result.stderr or 
+                json.dumps({"status": "error", "error": "No output from score manager script."}))
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to execute score manager script: {e}"})
+
+
+def delete_measure_from_score(tool_context: ToolContext, measure: int) -> str:
+    """Deletes a measure at a given position across all parts/tracks in the active score.
+
+    Args:
+        tool_context: The tool execution context containing session data.
+        measure: The 1-indexed measure number to delete.
+
+    Returns:
+        A JSON string containing the status and position of deletion.
+    """
+    script_path = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    session_id = tool_context.session.id
+    
+    python_exe = sys.executable or "python"
+    try:
+        result = subprocess.run(
+            [python_exe, str(script_path), "delete-measure", "--measure", str(measure), "--session-id", session_id],
+            capture_output=True,
+            text=True,
+            check=False,
+            stdin=subprocess.DEVNULL
+        )
+        return (result.stdout or result.stderr or 
+                json.dumps({"status": "error", "error": "No output from score manager script."}))
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to execute score manager script: {e}"})
+
+
+def transpose_part_in_score(tool_context: ToolContext, part_id: str, semitones: int) -> str:
+    """Transposes all pitches in a specific part/track of the score by a number of semitones.
+
+    Args:
+        tool_context: The tool execution context containing session data.
+        part_id: The ID of the part/track to transpose (e.g. 'melody', 'bassline').
+        semitones: Number of semitones to transpose (e.g. 2, -3).
+
+    Returns:
+        A JSON string containing the status and details of track transposition.
+    """
+    script_path = _PROJECT_ROOT / "skills" / "score_construction" / "scripts" / "score_manager.py"
+    part_id = _sanitize_arg(part_id)
+    session_id = tool_context.session.id
+    
+    python_exe = sys.executable or "python"
+    try:
+        result = subprocess.run(
+            [python_exe, str(script_path), "transpose-part", "--part-id", part_id, "--semitones", str(semitones), "--session-id", session_id],
+            capture_output=True,
+            text=True,
+            check=False,
+            stdin=subprocess.DEVNULL
+        )
+        return (result.stdout or result.stderr or 
+                json.dumps({"status": "error", "error": "No output from score manager script."}))
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to execute score manager script: {e}"})
 
 async def export_score_to_midi(tool_context: ToolContext) -> str:
     """Exports the active score session to a standard MIDI (.mid) file and saves it as an artifact.
@@ -981,8 +1184,8 @@ root_agent = Agent(
         "Use the list_scale_pitches tool to generate the notes/pitches of a specific scale or mode (major, minor, dorian, phrygian, lydian, mixolydian, locrian).\n"
         "Use the analyze_chord tool to identify a chord's common name and optionally perform Roman numeral analysis in a given key.\n"
         "Use the detect_key tool to estimate/detect the key signature of the active score or a MIDI file.\n"
-        "Use the initialize_score and add_note_to_score tools to manage and construct symbolic scores.\n"
-        "Use the transpose_score tool to transpose all notes/chords and key signatures in the active score up or down by a given number of semitones.\n"
+        "Use the initialize_score, add_note_to_score, and add_abc_to_score tools to manage and construct symbolic scores. Prefer add_abc_to_score when the user wants to enter multiple notes or a melody line quickly using ABC notation or TinyNotation. Use delete_note_from_score to remove or replace notes/rests, edit_note_in_score to edit pitches/durations of existing notes, insert_measure_into_score to insert blank measures, and delete_measure_from_score to remove measures.\n"
+        "Use the transpose_score tool to transpose all notes/chords and key signatures in the active score up or down by a given number of semitones. Use transpose_part_in_score to transpose a single part/track in the score.\n"
         "Use the validate_voice_leading tool to check the active score for classical voice-leading violations (parallel fifths/octaves) and range errors.\n"
         "Use the export_score_to_midi tool to export the active score to a standard MIDI file. When exporting MIDI, notify the user that the MIDI file is ready. Do not output any file:// links in your response. The chat UI will automatically attach the generated MIDI file inline for the user to download.\n"
         "Use the import_midi_to_score tool to load an external MIDI file into the active score session. When you run import_midi_to_score, you MUST list the automatically assigned instruments for all tracks in your response to the user. "
@@ -1008,6 +1211,7 @@ root_agent = Agent(
         detect_key,
         initialize_score,
         add_note_to_score,
+        add_abc_to_score,
         transpose_score,
         validate_voice_leading,
         export_score_to_midi,
@@ -1018,7 +1222,12 @@ root_agent = Agent(
         assign_instrument_to_track,
         set_score_tempo,
         render_notation,
-        synthesize_score
+        synthesize_score,
+        delete_note_from_score,
+        edit_note_in_score,
+        insert_measure_into_score,
+        delete_measure_from_score,
+        transpose_part_in_score
     ],
 )
 
