@@ -192,38 +192,58 @@ def main():
         
         # 1. Piano Roll Export (Matplotlib)
         if "piano_roll" in requested_formats or "score_plot" in requested_formats:
-            plt.figure(figsize=(10, 5))
-            plt.title("Score Piano Roll View (Multi-Part)", fontsize=14, fontweight='bold', pad=15)
-            plt.xlabel("Time (Beats)", fontsize=11, labelpad=10)
-            plt.ylabel("Pitch", fontsize=11, labelpad=10)
-            plt.grid(True, which='both', linestyle='--', alpha=0.5)
+            import matplotlib.patheffects as path_effects
+            pe = [path_effects.withStroke(linewidth=3, foreground='white')]
+            
+            fig, ax = plt.subplots(figsize=(10, 5), facecolor='none')
+            ax.set_facecolor('none')
+            
+            t = ax.set_title("Score Piano Roll View (Multi-Part)", fontsize=14, fontweight='bold', pad=15, color='#0F172A')
+            t.set_path_effects(pe)
+            
+            xl = ax.set_xlabel("Time (Beats)", fontsize=11, labelpad=10, color='#0F172A')
+            xl.set_path_effects(pe)
+            
+            yl = ax.set_ylabel("Pitch", fontsize=11, labelpad=10, color='#0F172A')
+            yl.set_path_effects(pe)
+            
+            ax.grid(True, which='both', linestyle=':', color='#CBD5E1', alpha=0.6)
+            
+            # Beautiful modern palette
+            MODERN_PART_COLORS = ['#4F46E5', '#10B981', '#EF4444', '#F59E0B', '#8B5CF6', '#14B8A6']
             
             # Plot horizontal segments for each part
             plotted_parts = set()
             for start, end, midi, pitch, part_idx, part_id in note_data:
-                color = PART_COLORS[part_idx % len(PART_COLORS)]
+                color = MODERN_PART_COLORS[part_idx % len(MODERN_PART_COLORS)]
                 label = part_id if part_id not in plotted_parts else ""
                 if label:
                     plotted_parts.add(part_id)
-                plt.plot([start, end], [midi, midi], color=color, linewidth=8, solid_capstyle='butt', label=label)
+                ax.plot([start, end], [midi, midi], color=color, linewidth=8, solid_capstyle='butt', label=label)
                 
-            plt.yticks(sorted_midi, sorted_labels)
+            ax.set_yticks(sorted_midi)
+            ax.set_yticklabels(sorted_labels)
+            
+            for label in ax.get_xticklabels() + ax.get_yticklabels():
+                label.set_color('#0F172A')
+                label.set_path_effects(pe)
+                
             if len(sorted_midi) == 1:
-                plt.ylim(sorted_midi[0] - 1, sorted_midi[0] + 1)
+                ax.set_ylim(sorted_midi[0] - 1, sorted_midi[0] + 1)
             else:
-                plt.ylim(sorted_midi[0] - 0.5, sorted_midi[-1] + 0.5)
+                ax.set_ylim(sorted_midi[0] - 0.5, sorted_midi[-1] + 0.5)
                 
-            plt.xlim(-0.2, max_time + 0.2)
+            ax.set_xlim(-0.2, max_time + 0.2)
             if plotted_parts:
-                plt.legend(loc='upper right')
+                ax.legend(loc='upper right', facecolor='#F8FAFC', edgecolor='#CBD5E1', framealpha=0.9)
                 
             plt.tight_layout()
             
             if "piano_roll" in requested_formats:
-                plt.savefig(piano_roll_path, dpi=150)
+                fig.savefig(piano_roll_path, dpi=150, facecolor='none', transparent=True)
             if "score_plot" in requested_formats:
-                plt.savefig(score_plot_path, dpi=150)
-            plt.close()
+                fig.savefig(score_plot_path, dpi=150, facecolor='none', transparent=True)
+            plt.close(fig)
         
         # 2. music21 MusicXML Export
         if "musicxml" in requested_formats:

@@ -151,9 +151,24 @@ def get_guitar_voicing(chord_name: str) -> list:
             
     return voicing
 
+import matplotlib.patheffects as path_effects
+
+def midi_to_pitch_name(midi_val):
+    names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    octave = (midi_val // 12) - 1
+    note_name = names[midi_val % 12]
+    return f"{note_name}{octave}"
+
+def get_guitar_note_name(string_idx, fret):
+    open_midis = [40, 45, 50, 55, 59, 64]
+    midi_val = open_midis[string_idx] + fret
+    names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    return names[midi_val % 12]
+
 def draw_piano_keyboard(midi_notes, title=""):
-    fig, ax = plt.subplots(figsize=(8, 3.5), facecolor='#1e1e24')
-    ax.set_facecolor('#1e1e24')
+    pe = [path_effects.withStroke(linewidth=3, foreground='white')]
+    fig, ax = plt.subplots(figsize=(8, 3.5), facecolor='none')
+    ax.set_facecolor('none')
     
     # 2 octaves range: C3 (48) to B4 (71)
     white_keys = [48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71]
@@ -164,46 +179,48 @@ def draw_piano_keyboard(midi_notes, title=""):
     
     # Render white keys
     for idx, val in enumerate(white_keys):
+        is_pressed = val in midi_notes
+        facecolor = '#DBEAFE' if is_pressed else '#FFFFFF'
+        edgecolor = '#2563EB' if is_pressed else '#94A3B8'
         rect = patches.Rectangle(
-            (idx, 0), 0.96, 4.0,
-            edgecolor='#2b2d42', facecolor='#f7f7ff',
+            (idx, 0), 1.0, 4.0,
+            edgecolor=edgecolor, facecolor=facecolor,
             linewidth=1.5
         )
         ax.add_patch(rect)
         
     # Render black keys (drawn on top)
-    # Positions are fractional spacing between white keys
     black_positions = {
-        49: 0.65, 51: 1.65, 54: 3.65, 56: 4.65, 58: 5.65,
-        61: 7.65, 63: 8.65, 66: 10.65, 68: 11.65, 70: 12.65
+        49: 0.7, 51: 1.7, 54: 3.7, 56: 4.7, 58: 5.7,
+        61: 7.7, 63: 8.7, 66: 10.7, 68: 11.7, 70: 12.7
     }
     
     for val, x in black_positions.items():
+        is_pressed = val in midi_notes
+        facecolor = '#2563EB' if is_pressed else '#1E293B'
+        edgecolor = '#1D4ED8' if is_pressed else '#0F172A'
         rect = patches.Rectangle(
-            (x, 1.4), 0.6, 2.6,
-            edgecolor='#1e1e24', facecolor='#2b2d42',
-            linewidth=1.2
+            (x - 0.3, 1.4), 0.6, 2.6,
+            edgecolor=edgecolor, facecolor=facecolor,
+            linewidth=1.2, zorder=3
         )
         ax.add_patch(rect)
         
     # Highlight pressed notes
-    highlight_color = '#06d6a0' # Sleek bright green/teal
+    highlight_color = '#2563EB'
     for note_val in midi_notes:
+        note_name = midi_to_pitch_name(note_val)
         if note_val in white_to_idx:
-            # White key: put circle in bottom half
             w_idx = white_to_idx[note_val]
-            circle = patches.Circle((w_idx + 0.48, 0.7), 0.28, color=highlight_color, zorder=5)
+            circle = patches.Circle((w_idx + 0.5, 0.7), 0.3, color=highlight_color, zorder=5)
             ax.add_patch(circle)
-            # Label
-            ax.text(w_idx + 0.48, 0.7, str(note_val), color='#1e1e24',
+            ax.text(w_idx + 0.5, 0.7, note_name, color='#FFFFFF',
                     fontsize=8, fontweight='bold', ha='center', va='center', zorder=6)
         elif note_val in black_positions:
-            # Black key: put circle in middle
             bx = black_positions[note_val]
-            circle = patches.Circle((bx + 0.3, 2.2), 0.22, color=highlight_color, zorder=5)
+            circle = patches.Circle((bx, 2.2), 0.24, color='#60A5FA', zorder=5)
             ax.add_patch(circle)
-            # Label
-            ax.text(bx + 0.3, 2.2, str(note_val), color='#1e1e24',
+            ax.text(bx, 2.2, note_name, color='#FFFFFF',
                     fontsize=7, fontweight='bold', ha='center', va='center', zorder=6)
                     
     # Setup coordinates and remove axes
@@ -213,14 +230,16 @@ def draw_piano_keyboard(midi_notes, title=""):
     ax.axis('off')
     
     if title:
-        plt.title(title, color='#f7f7ff', fontsize=12, fontweight='bold', pad=10)
+        t_obj = plt.title(title, color='#0F172A', fontsize=12, fontweight='bold', pad=10)
+        t_obj.set_path_effects(pe)
         
     plt.tight_layout()
     return fig
 
 def draw_guitar_chord(voicing, chord_name=""):
-    fig, ax = plt.subplots(figsize=(4, 5.5), facecolor='#1e1e24')
-    ax.set_facecolor('#1e1e24')
+    pe = [path_effects.withStroke(linewidth=3, foreground='white')]
+    fig, ax = plt.subplots(figsize=(4, 5.5), facecolor='none')
+    ax.set_facecolor('none')
     
     # Filter out None and 0 to find active frets
     fingered_frets = [f for f in voicing if f is not None and f > 0]
@@ -240,19 +259,19 @@ def draw_guitar_chord(voicing, chord_name=""):
     # 6 strings vertical lines
     for string_idx in range(6):
         linewidth = 1.0 + (5 - string_idx) * 0.4 # Low strings are thicker
-        ax.plot([string_idx, string_idx], [0, 4], color='#8d99ae', linewidth=linewidth, zorder=1)
+        ax.plot([string_idx, string_idx], [0, 4], color='#64748B', linewidth=linewidth, zorder=1)
         
     # 5 frets horizontal lines
     for fret_idx in range(5):
         if fret_idx == 0:
             if is_nut:
                 # The nut (thicker top line)
-                ax.plot([-0.1, 5.1], [4, 4], color='#f7f7ff', linewidth=4.0, zorder=2)
+                ax.plot([-0.1, 5.1], [4, 4], color='#475569', linewidth=4.0, zorder=2)
             else:
                 # Normal thin top line
-                ax.plot([0, 5], [4, 4], color='#8d99ae', linewidth=1.5, zorder=1)
+                ax.plot([0, 5], [4, 4], color='#64748B', linewidth=1.5, zorder=1)
         else:
-            ax.plot([0, 5], [4 - fret_idx, 4 - fret_idx], color='#8d99ae', linewidth=1.5, zorder=1)
+            ax.plot([0, 5], [4 - fret_idx, 4 - fret_idx], color='#64748B', linewidth=1.5, zorder=1)
             
     # Draw contiguous barre lines
     from collections import defaultdict
@@ -278,33 +297,34 @@ def draw_guitar_chord(voicing, chord_name=""):
                 if len(g) >= 3:
                     fret_relative = fret - start_fret + 1
                     barre_y = 4.5 - fret_relative
-                    ax.plot([g[0], g[-1]], [barre_y, barre_y], color='#06d6a0', linewidth=16, solid_capstyle='round', zorder=3)
+                    ax.plot([g[0], g[-1]], [barre_y, barre_y], color='#3B82F6', linewidth=16, solid_capstyle='round', zorder=3)
             
-    # Draw string labels above nut
-    string_labels = ['E', 'A', 'D', 'G', 'B', 'e']
-    
-    # Voicing details: voicing is standard low E to high e order
+    # Draw string status above nut
     for idx, fret in enumerate(voicing):
         string_x = idx
         if fret is None:
             # Muted string (X)
-            ax.text(string_x, 4.3, 'x', color='#ef476f', fontsize=14, fontweight='bold', ha='center', va='center')
+            t = ax.text(string_x, 4.3, 'x', color='#EF4444', fontsize=14, fontweight='bold', ha='center', va='center')
+            t.set_path_effects(pe)
         elif fret == 0:
             # Open string (O)
-            ax.text(string_x, 4.3, 'o', color='#06d6a0', fontsize=14, fontweight='bold', ha='center', va='center')
+            t = ax.text(string_x, 4.3, 'o', color='#10B981', fontsize=14, fontweight='bold', ha='center', va='center')
+            t.set_path_effects(pe)
         else:
             # Fingered string: place dot on the fretboard
             fret_relative = fret - start_fret + 1
             fret_y = 4.5 - fret_relative
-            circle = patches.Circle((string_x, fret_y), 0.28, color='#06d6a0', zorder=4)
+            circle = patches.Circle((string_x, fret_y), 0.28, color='#2563EB', zorder=4)
             ax.add_patch(circle)
             # Add note label
-            ax.text(string_x, fret_y, string_labels[idx], color='#1e1e24', fontsize=9, fontweight='bold', ha='center', va='center', zorder=5)
+            note_name = get_guitar_note_name(idx, fret)
+            ax.text(string_x, fret_y, note_name, color='#FFFFFF', fontsize=9, fontweight='bold', ha='center', va='center', zorder=5)
             
     # Add fret numbers on the left
     for fret_idx in range(1, 5):
         actual_fret = start_fret + fret_idx - 1
-        ax.text(-0.6, 4.5 - fret_idx, f"fr {actual_fret}", color='#8d99ae', fontsize=9, ha='center', va='center')
+        t = ax.text(-0.6, 4.5 - fret_idx, f"fr {actual_fret}", color='#475569', fontsize=9, fontweight='bold', ha='center', va='center')
+        t.set_path_effects(pe)
         
     ax.set_xlim(-0.8, 5.8)
     ax.set_ylim(-0.5, 4.8)
@@ -312,7 +332,8 @@ def draw_guitar_chord(voicing, chord_name=""):
     ax.axis('off')
     
     if chord_name:
-        plt.title(chord_name, color='#f7f7ff', fontsize=14, fontweight='bold', pad=15)
+        t = plt.title(chord_name, color='#0F172A', fontsize=14, fontweight='bold', pad=15)
+        t.set_path_effects(pe)
         
     plt.tight_layout()
     return fig
@@ -375,7 +396,7 @@ def main():
                     
             title = args.chord_name or f"Piano Triad: {', '.join(pitches_list)}"
             fig = draw_piano_keyboard(midi_notes, title=title)
-            fig.savefig(output_path, dpi=120, facecolor='#1e1e24')
+            fig.savefig(output_path, dpi=120, facecolor='none', transparent=True)
             plt.close(fig)
             
         elif args.instrument == "guitar":
@@ -393,7 +414,7 @@ def main():
                 print(f"Voicing resolution failed for {name}: {e}")
                 
             fig = draw_guitar_chord(voicing, chord_name=chord_title)
-            fig.savefig(output_path, dpi=120, facecolor='#1e1e24')
+            fig.savefig(output_path, dpi=120, facecolor='none', transparent=True)
             plt.close(fig)
             
         # Output success JSON
