@@ -141,7 +141,7 @@ def analyze_chord(pitches: str, key_signature: str = "") -> str:
         return json.dumps({"status": "error", "error": f"Failed to execute chord analysis script: {e}"})
 
 
-def render_chord_diagram(tool_context: ToolContext, pitches: str = "", instrument: str = "piano", chord_name: str = "") -> str:
+async def render_chord_diagram(tool_context: ToolContext, pitches: str = "", instrument: str = "piano", chord_name: str = "") -> str:
     """Renders a beautiful visual diagram (piano keyboard or guitar fretboard) for a chord.
 
     Args:
@@ -178,6 +178,29 @@ def render_chord_diagram(tool_context: ToolContext, pitches: str = "", instrumen
             check=False,
             stdin=subprocess.DEVNULL
         )
+        
+        # Load and save artifact if successful
+        if result.returncode == 0:
+            try:
+                res_dict = json.loads(result.stdout)
+            except Exception:
+                res_dict = {"status": "success"}
+                
+            img_path = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "assets" / f"chord_{session_id}.png"
+            if img_path.is_file():
+                try:
+                    with open(img_path, "rb") as f:
+                        data = f.read()
+                    await tool_context.save_artifact(
+                        filename=f"chord_{session_id}.png",
+                        artifact=types.Part.from_bytes(data=data, mime_type="image/png")
+                    )
+                    res_dict["output_path_absolute"] = str(img_path.resolve().as_posix())
+                except Exception as e:
+                    print(f"Failed to save chord artifact: {e}")
+                    
+            return json.dumps(res_dict, indent=2)
+            
         return (result.stdout or result.stderr or 
                 json.dumps({"status": "error", "error": "No output from chord diagram generator."}))
     except Exception as e:

@@ -50,6 +50,24 @@ app.title = "cadence"
 app.description = "API for interacting with Cadence, the AI music assistant"
 
 
+from fastapi.staticfiles import StaticFiles
+from app.app_utils.visual_runner import VisualRunner
+
+# Mount skills static files
+skills_dir = os.path.join(AGENT_DIR, "skills")
+app.mount("/dev-ui/skills", StaticFiles(directory=skills_dir), name="dev_ui_skills")
+app.mount("/skills", StaticFiles(directory=skills_dir), name="skills")
+
+# Replace default runner with VisualRunner if present
+if hasattr(app, "state") and hasattr(app.state, "runner") and app.state.runner:
+    existing_runner = app.state.runner
+    app.state.runner = VisualRunner(
+        app=existing_runner.app,
+        session_service=existing_runner.session_service,
+        artifact_service=existing_runner.artifact_service,
+        auto_create_session=existing_runner.auto_create_session,
+    )
+
 @app.post("/feedback")
 def collect_feedback(feedback: Feedback) -> dict[str, str]:
     """Collect and log feedback.
@@ -60,7 +78,11 @@ def collect_feedback(feedback: Feedback) -> dict[str, str]:
     Returns:
         Success message
     """
-    logger.log_struct(feedback.model_dump(), severity="INFO")
+    try:
+        logger.log_struct(feedback.model_dump(), severity="INFO")
+    except Exception as e:
+        import logging
+        logging.warning(f"Failed to log feedback to Google Cloud Logging: {e}")
     return {"status": "success"}
 
 

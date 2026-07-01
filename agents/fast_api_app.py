@@ -77,6 +77,11 @@ app: FastAPI = get_fast_api_app(
 app.title = "cadence-music-assistant"
 app.description = "API for interacting with the Agent cadence-music-assistant"
 
+from fastapi.staticfiles import StaticFiles
+skills_dir = os.path.join(AGENT_DIR, "skills")
+app.mount("/dev-ui/skills", StaticFiles(directory=skills_dir), name="dev_ui_skills")
+app.mount("/skills", StaticFiles(directory=skills_dir), name="skills")
+
 
 @app.post("/feedback")
 def collect_feedback(feedback: Feedback) -> dict[str, str]:
@@ -88,7 +93,11 @@ def collect_feedback(feedback: Feedback) -> dict[str, str]:
     Returns:
         Success message
     """
-    logger.log_struct(feedback.model_dump(), severity="INFO")
+    try:
+        logger.log_struct(feedback.model_dump(), severity="INFO")
+    except Exception as e:
+        import logging
+        logging.warning(f"Failed to log feedback to Google Cloud Logging: {e}")
     return {"status": "success"}
 
 
