@@ -34,45 +34,122 @@ def pitch_to_midi(pitch_str):
         
     return pitch_val
 
-# Standard Guitar Chord Database (string order: low E, A, D, G, B, high e)
-GUITAR_CHORDS = {
-    "C": [None, 3, 2, 0, 1, 0],
-    "C Major": [None, 3, 2, 0, 1, 0],
-    "Cmaj": [None, 3, 2, 0, 1, 0],
-    "G": [3, 2, 0, 0, 0, 3],
-    "G Major": [3, 2, 0, 0, 0, 3],
-    "Gmaj": [3, 2, 0, 0, 0, 3],
-    "D": [None, None, 0, 2, 3, 2],
-    "D Major": [None, None, 0, 2, 3, 2],
-    "Dmaj": [None, None, 0, 2, 3, 2],
-    "A": [None, 0, 2, 2, 2, 0],
-    "A Major": [None, 0, 2, 2, 2, 0],
-    "Amaj": [None, 0, 2, 2, 2, 0],
-    "E": [0, 2, 2, 1, 0, 0],
-    "E Major": [0, 2, 2, 1, 0, 0],
-    "Emaj": [0, 2, 2, 1, 0, 0],
-    "F": [1, 3, 3, 2, 1, 1],
-    "F Major": [1, 3, 3, 2, 1, 1],
-    "Fmaj": [1, 3, 3, 2, 1, 1],
-    "Am": [None, 0, 2, 2, 1, 0],
-    "A Minor": [None, 0, 2, 2, 1, 0],
-    "Amin": [None, 0, 2, 2, 1, 0],
-    "Em": [0, 2, 2, 0, 0, 0],
-    "E Minor": [0, 2, 2, 0, 0, 0],
-    "Emin": [0, 2, 2, 0, 0, 0],
-    "Dm": [None, None, 0, 2, 3, 1],
-    "D Minor": [None, None, 0, 2, 3, 1],
-    "Dmin": [None, None, 0, 2, 3, 1],
-    "C7": [None, 3, 2, 3, 1, 0],
-    "G7": [3, 2, 0, 0, 0, 1],
-    "D7": [None, None, 0, 2, 1, 2],
-    "A7": [None, 0, 2, 0, 2, 0],
-    "E7": [0, 2, 0, 1, 0, 0],
-    "B7": [None, 2, 1, 2, 0, 2],
-    "Am7": [None, 0, 2, 0, 1, 0],
-    "Dm7": [None, None, 0, 2, 1, 1],
-    "Em7": [0, 2, 0, 0, 0, 0],
+# Standard Guitar Chord Shapes Database (offsets from root fret on string 5 or 6)
+# String indices: 0 (low E), 1 (A), 2 (D), 3 (G), 4 (B), 5 (high e)
+SHAPES_S6 = {
+    "major": {0: 0, 1: 2, 2: 2, 3: 1, 4: 0, 5: 0},
+    "minor": {0: 0, 1: 2, 2: 2, 3: 0, 4: 0, 5: 0},
+    "7": {0: 0, 1: 2, 2: 0, 3: 1, 4: 0, 5: 0},
+    "m7": {0: 0, 1: 2, 2: 0, 3: 0, 4: 0, 5: 0},
+    "maj7": {0: 0, 1: 2, 2: 1, 3: 1, 4: 0, 5: 0},
+    "9": {0: 0, 1: -1, 2: 0, 3: 0, 4: 0},
 }
+
+SHAPES_S5 = {
+    "major": {1: 0, 2: 2, 3: 2, 4: 2, 5: 0},
+    "minor": {1: 0, 2: 2, 3: 2, 4: 1, 5: 0},
+    "7": {1: 0, 2: 2, 3: 0, 4: 2, 5: 0},
+    "m7": {1: 0, 2: 2, 3: 0, 4: 1, 5: 0},
+    "maj7": {1: 0, 2: 2, 3: 1, 4: 2, 5: 0},
+    "9": {1: 0, 2: -1, 3: 0, 4: 0, 5: 0},
+}
+
+OPEN_CHORDS = {
+    "C": [None, 3, 2, 0, 1, 0],
+    "C major": [None, 3, 2, 0, 1, 0],
+    "C7": [None, 3, 2, 3, 1, 0],
+    "Cmaj7": [None, 3, 2, 0, 0, 0],
+    "C9": [None, 3, 2, 3, 3, 3],
+    
+    "A": [None, 0, 2, 2, 2, 0],
+    "A major": [None, 0, 2, 2, 2, 0],
+    "Am": [None, 0, 2, 2, 1, 0],
+    "A minor": [None, 0, 2, 2, 1, 0],
+    "A7": [None, 0, 2, 0, 2, 0],
+    "Am7": [None, 0, 2, 0, 1, 0],
+    "Amaj7": [None, 0, 2, 1, 2, 0],
+    "A9": [None, 0, 2, 4, 2, 3],
+    
+    "G": [3, 2, 0, 0, 0, 3],
+    "G major": [3, 2, 0, 0, 0, 3],
+    "Gm": [3, 5, 5, 3, 3, 3],
+    "G7": [3, 2, 0, 0, 0, 1],
+    "Gm7": [3, 5, 3, 3, 3, 3],
+    "Gmaj7": [3, 2, 0, 0, 0, 2],
+    "G9": [3, 2, 0, 2, 0, 1],
+    
+    "E": [0, 2, 2, 1, 0, 0],
+    "E major": [0, 2, 2, 1, 0, 0],
+    "Em": [0, 2, 2, 0, 0, 0],
+    "E minor": [0, 2, 2, 0, 0, 0],
+    "E7": [0, 2, 0, 1, 0, 0],
+    "Em7": [0, 2, 0, 0, 0, 0],
+    "Emaj7": [0, 2, 1, 1, 0, 0],
+    "E9": [0, 2, 0, 1, 0, 2],
+    
+    "D": [None, None, 0, 2, 3, 2],
+    "D major": [None, None, 0, 2, 3, 2],
+    "Dm": [None, None, 0, 2, 3, 1],
+    "D minor": [None, None, 0, 2, 3, 1],
+    "D7": [None, None, 0, 2, 1, 2],
+    "Dm7": [None, None, 0, 2, 1, 1],
+    "Dmaj7": [None, None, 0, 2, 2, 2],
+    "D9": [None, None, 0, 2, 1, 0],
+}
+
+def get_guitar_voicing(chord_name: str) -> list:
+    name = chord_name.strip()
+    
+    for key, val in OPEN_CHORDS.items():
+        if key.lower() == name.lower():
+            return val
+            
+    match = re.match(r'^([A-G][b#]?)(.*)$', name)
+    if not match:
+        raise ValueError(f"Invalid chord name format: {name}")
+        
+    root, quality = match.groups()
+    quality = quality.strip().lower()
+    
+    if quality in ["", "major", "maj"]:
+        q_type = "major"
+    elif quality in ["m", "minor", "min"]:
+        q_type = "minor"
+    elif quality in ["7", "dom7"]:
+        q_type = "7"
+    elif quality in ["m7", "min7"]:
+        q_type = "m7"
+    elif quality in ["maj7", "major7"]:
+        q_type = "maj7"
+    elif quality in ["9", "dom9"]:
+        q_type = "9"
+    else:
+        q_type = "major"
+        
+    ROOT_FRETS_S6 = {'E': 0, 'F': 1, 'F#': 2, 'Gb': 2, 'G': 3, 'G#': 4, 'Ab': 4, 'A': 5, 'A#': 6, 'Bb': 6, 'B': 7, 'C': 8, 'C#': 9, 'Db': 9, 'D': 10, 'D#': 11, 'Eb': 11}
+    ROOT_FRETS_S5 = {'A': 0, 'A#': 1, 'Bb': 1, 'B': 2, 'C': 3, 'C#': 4, 'Db': 4, 'D': 5, 'D#': 6, 'Eb': 6, 'E': 7, 'F': 8, 'F#': 9, 'Gb': 9, 'G': 10, 'G#': 11, 'Ab': 11}
+    
+    fret_s6 = ROOT_FRETS_S6.get(root)
+    fret_s5 = ROOT_FRETS_S5.get(root)
+    
+    voicing = [None] * 6
+    
+    if fret_s6 is not None and (fret_s6 <= 5 or fret_s5 is None or fret_s5 > 5):
+        r = fret_s6
+        shape = SHAPES_S6.get(q_type, SHAPES_S6["major"])
+        for string_idx, offset in shape.items():
+            voicing[string_idx] = r + offset
+    elif fret_s5 is not None:
+        r = fret_s5
+        shape = SHAPES_S5.get(q_type, SHAPES_S5["major"])
+        for string_idx, offset in shape.items():
+            voicing[string_idx] = r + offset
+            
+    for f in voicing:
+        if f is not None and (f < 0 or f > 18):
+            raise ValueError(f"Voicing out of bounds for {name}")
+            
+    return voicing
 
 def draw_piano_keyboard(midi_notes, title=""):
     fig, ax = plt.subplots(figsize=(8, 3.5), facecolor='#1e1e24')
@@ -144,6 +221,21 @@ def draw_guitar_chord(voicing, chord_name=""):
     fig, ax = plt.subplots(figsize=(4, 5.5), facecolor='#1e1e24')
     ax.set_facecolor('#1e1e24')
     
+    # Filter out None and 0 to find active frets
+    fingered_frets = [f for f in voicing if f is not None and f > 0]
+    if fingered_frets:
+        min_fret = min(fingered_frets)
+        max_fret = max(fingered_frets)
+        if max_fret <= 4:
+            start_fret = 1
+            is_nut = True
+        else:
+            start_fret = min_fret
+            is_nut = False
+    else:
+        start_fret = 1
+        is_nut = True
+        
     # 6 strings vertical lines
     for string_idx in range(6):
         linewidth = 1.0 + (5 - string_idx) * 0.4 # Low strings are thicker
@@ -152,10 +244,40 @@ def draw_guitar_chord(voicing, chord_name=""):
     # 5 frets horizontal lines
     for fret_idx in range(5):
         if fret_idx == 0:
-            # The nut (thicker top line)
-            ax.plot([-0.1, 5.1], [4, 4], color='#f7f7ff', linewidth=4.0, zorder=2)
+            if is_nut:
+                # The nut (thicker top line)
+                ax.plot([-0.1, 5.1], [4, 4], color='#f7f7ff', linewidth=4.0, zorder=2)
+            else:
+                # Normal thin top line
+                ax.plot([0, 5], [4, 4], color='#8d99ae', linewidth=1.5, zorder=1)
         else:
             ax.plot([0, 5], [4 - fret_idx, 4 - fret_idx], color='#8d99ae', linewidth=1.5, zorder=1)
+            
+    # Draw contiguous barre lines
+    from collections import defaultdict
+    fret_strings = defaultdict(list)
+    for idx, val in enumerate(voicing):
+        if val is not None and val > 0:
+            fret_strings[val].append(idx)
+            
+    for fret, strings in fret_strings.items():
+        if len(strings) >= 3:
+            strings.sort()
+            groups = []
+            cur_group = [strings[0]]
+            for s in strings[1:]:
+                if s == cur_group[-1] + 1:
+                    cur_group.append(s)
+                else:
+                    groups.append(cur_group)
+                    cur_group = [s]
+            groups.append(cur_group)
+            
+            for g in groups:
+                if len(g) >= 3:
+                    fret_relative = fret - start_fret + 1
+                    barre_y = 4.5 - fret_relative
+                    ax.plot([g[0], g[-1]], [barre_y, barre_y], color='#06d6a0', linewidth=16, solid_capstyle='round', zorder=3)
             
     # Draw string labels above nut
     string_labels = ['E', 'A', 'D', 'G', 'B', 'e']
@@ -171,16 +293,17 @@ def draw_guitar_chord(voicing, chord_name=""):
             ax.text(string_x, 4.3, 'o', color='#06d6a0', fontsize=14, fontweight='bold', ha='center', va='center')
         else:
             # Fingered string: place dot on the fretboard
-            # Fret y coordinate: 4 - fret + 0.5 (middle of the fret)
-            fret_y = 4.5 - fret
-            circle = patches.Circle((string_x, fret_y), 0.28, color='#06d6a0', zorder=3)
+            fret_relative = fret - start_fret + 1
+            fret_y = 4.5 - fret_relative
+            circle = patches.Circle((string_x, fret_y), 0.28, color='#06d6a0', zorder=4)
             ax.add_patch(circle)
-            # Add note label or finger label
-            ax.text(string_x, fret_y, string_labels[idx], color='#1e1e24', fontsize=9, fontweight='bold', ha='center', va='center', zorder=4)
+            # Add note label
+            ax.text(string_x, fret_y, string_labels[idx], color='#1e1e24', fontsize=9, fontweight='bold', ha='center', va='center', zorder=5)
             
     # Add fret numbers on the left
     for fret_idx in range(1, 5):
-        ax.text(-0.6, 4.5 - fret_idx, f"fr {fret_idx}", color='#8d99ae', fontsize=9, ha='center', va='center')
+        actual_fret = start_fret + fret_idx - 1
+        ax.text(-0.6, 4.5 - fret_idx, f"fr {actual_fret}", color='#8d99ae', fontsize=9, ha='center', va='center')
         
     ax.set_xlim(-0.8, 5.8)
     ax.set_ylim(-0.5, 4.8)
@@ -254,24 +377,18 @@ def main():
             plt.close(fig)
             
         elif args.instrument == "guitar":
-            # Lookup chord voicing
             name = args.chord_name.strip()
             if not name:
                 raise ValueError("Chord name is required for guitar fretboard lookup.")
                 
-            # Try to match chord name case insensitively
-            voicing = None
-            for key_name, val in GUITAR_CHORDS.items():
-                if key_name.lower() == name.lower():
-                    voicing = val
-                    break
-                    
-            if not voicing:
-                # Default to C Major if not found
-                voicing = GUITAR_CHORDS["C Major"]
-                chord_title = f"{name} (Voicing Default)"
-            else:
+            try:
+                voicing = get_guitar_voicing(name)
                 chord_title = name
+            except Exception as e:
+                # Default to C Major if parsing/voicing fails
+                voicing = OPEN_CHORDS["C Major"]
+                chord_title = f"{name} (Default C)"
+                print(f"Voicing resolution failed for {name}: {e}")
                 
             fig = draw_guitar_chord(voicing, chord_name=chord_title)
             fig.savefig(output_path, dpi=120, facecolor='#1e1e24')
