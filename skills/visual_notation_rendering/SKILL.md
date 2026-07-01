@@ -4,6 +4,7 @@ description: Converts active score JSON state file coordinates into inline graph
 permission_tier: Read-Only
 allowed-tools:
   - render_notation
+  - render_chord_diagram
 ---
 
 # rendering-visual-notation

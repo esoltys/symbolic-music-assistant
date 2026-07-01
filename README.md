@@ -66,9 +66,9 @@ The following concepts from the "AI Agents: Intensive Vibe Coding Course" are de
 
 | Concept | Where |
 |---|---|
-| **Agent / Multi-agent system (ADK)** | [`agents/music_assistant/agent.py`](https://github.com/esoltys/cadence-music-assistant/blob/main/agents/music_assistant/agent.py) — `root_agent = Agent(...)` with 23 registered tools |
+| **Agent / Multi-agent system (ADK)** | [`agents/music_assistant/agent.py`](https://github.com/esoltys/cadence-music-assistant/blob/main/agents/music_assistant/agent.py) — `root_agent = Agent(...)` with 24 registered tools |
 | **Agent Skills (agents-cli)** | 5 skill directories under `skills/`, `agents-cli-manifest.yaml`, full `eval/playground/deploy` workflow |
-| **MCP Server** | [`mcp_server.py`](https://github.com/esoltys/cadence-music-assistant/blob/main/mcp_server.py) — exposes all 23 music theory, composition, visualization, and synthesis tools via stdio MCP for external clients |
+| **MCP Server** | [`mcp_server.py`](https://github.com/esoltys/cadence-music-assistant/blob/main/mcp_server.py) — exposes all 24 music theory, composition, visualization, and synthesis tools via stdio MCP for external clients |
 | **Security features** | Path traversal guard (`_safe_resolve_path`), input length caps (`_sanitize_arg`), CORS control, session isolation, privacy-preserving telemetry |
 | **Deployability** | `Dockerfile`, Cloud Run deployment via `agents-cli deploy`, Terraform scaffold available |
 | **Antigravity** | Used throughout development — see [`GEMINI.md`](https://github.com/esoltys/cadence-music-assistant/blob/main/GEMINI.md) and video demo |
@@ -193,7 +193,7 @@ Hear what you've built, without opening a DAW.
 
 ### Complete Tool Inventory
 
-The agent has 23 registered tools across the 5 skill areas:
+The agent has 24 registered tools across the 5 skill areas:
 
 | Tool | Skill Area |
 |---|---|
@@ -217,6 +217,7 @@ The agent has 23 registered tools across the 5 skill areas:
 | `detect_key` | [Music Theory](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/music_theory_query/SKILL.md) |
 | `analyze_midi_file` | [MIDI Analytics](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/midi_analytics/SKILL.md) |
 | `render_notation` | [Visual Notation](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/visual_notation_rendering/SKILL.md) |
+| `render_chord_diagram` | [Visual Notation](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/visual_notation_rendering/SKILL.md) |
 | `synthesize_score` | [Audio Synthesis](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/acoustic_audio_synthesis/SKILL.md) |
 | `list_soundfonts` | [Audio Synthesis](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/acoustic_audio_synthesis/SKILL.md) |
 | `list_soundfont_instruments` | [Audio Synthesis](https://github.com/esoltys/cadence-music-assistant/blob/main/skills/acoustic_audio_synthesis/SKILL.md) |

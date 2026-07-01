@@ -48,6 +48,7 @@ skills/*/assets/score_*
 skills/*/assets/piano_roll_*
 skills/*/assets/score_plot_*
 skills/*/assets/uploaded_*
+skills/*/assets/chord_*
 
 # SoundFonts (large binary assets for synthesizer)
 *.sf2

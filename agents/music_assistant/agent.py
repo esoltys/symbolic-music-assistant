@@ -140,6 +140,49 @@ def analyze_chord(pitches: str, key_signature: str = "") -> str:
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Failed to execute chord analysis script: {e}"})
 
+
+def render_chord_diagram(tool_context: ToolContext, pitches: str = "", instrument: str = "piano", chord_name: str = "") -> str:
+    """Renders a beautiful visual diagram (piano keyboard or guitar fretboard) for a chord.
+
+    Args:
+        tool_context: The tool execution context containing session data.
+        pitches: The comma-separated note pitches to highlight (e.g. 'C4,E4,G4'). Required if instrument is 'piano'.
+        instrument: The visual layout type, either 'piano' or 'guitar' (default: 'piano').
+        chord_name: The name of the chord for lookup or title rendering (e.g., 'C Major', 'Am7').
+
+    Returns:
+        A JSON string containing the status and relative path of the generated image.
+    """
+    script_path = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "scripts" / "draw_chord.py"
+    pitches = _sanitize_arg(pitches)
+    instrument = _sanitize_arg(instrument)
+    chord_name = _sanitize_arg(chord_name)
+    session_id = tool_context.session.id
+    
+    python_exe = sys.executable or "python"
+    cmd = [
+        python_exe, str(script_path),
+        "--instrument", instrument,
+        "--session-id", session_id
+    ]
+    if pitches:
+        cmd += ["--pitches", pitches]
+    if chord_name:
+        cmd += ["--chord-name", chord_name]
+        
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            stdin=subprocess.DEVNULL
+        )
+        return (result.stdout or result.stderr or 
+                json.dumps({"status": "error", "error": "No output from chord diagram generator."}))
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Failed to execute chord diagram script: {e}"})
+
 def initialize_score(tool_context: ToolContext, time_signature: str = "4/4", key_signature: str = "C Major") -> str:
     """Initializes a fresh localized musical score.
 
@@ -1182,7 +1225,8 @@ root_agent = Agent(
         "When a user attaches or uploads any file (including generic binary attachments or files with MIME types like application/octet-stream) and requests a music task (such as import, analyze, play, or key detection), you must assume it is the MIDI file they want to process. You must call the appropriate tool (such as analyze_midi_file, import_midi_to_score, or detect_key) immediately on the very first turn. Under standard ADK tool integration, the chat attachment's media data will be mapped directly to the tool's structured file_attachment parameter. Do not ask the user to attach a MIDI file if they have already uploaded a file in their message.\n"
         "Use the evaluate_interval tool to compute pitch distance and interval names.\n"
         "Use the list_scale_pitches tool to generate the notes/pitches of a specific scale or mode (major, minor, dorian, phrygian, lydian, mixolydian, locrian).\n"
-        "Use the analyze_chord tool to identify a chord's common name and optionally perform Roman numeral analysis in a given key. When the user asks about chord voicings, chord structures, or what pitches/triads to combine to form a target chord, you MUST call analyze_chord with the combined pitches to verify the resulting chord is correct before responding.\n"
+        "Use the analyze_chord tool to verify chord spellings, identify a chord's common name, and optionally perform Roman numeral analysis in a given key.\n"
+        "Use the render_chord_diagram tool to render a visual keyboard (piano) or fretboard (guitar) diagram for a chord. When the user asks to visualize a chord or when you are answering a theory question about chord voicings/structures, call render_chord_diagram to generate a visual aid and embed the resulting PNG path in your response as an inline markdown image: ![Chord Diagram](skills/visual_notation_rendering/assets/chord_SESSION_ID.png) (where SESSION_ID is the actual session ID of the session).\n"
         "Use the detect_key tool to estimate/detect the key signature of the active score or a MIDI file.\n"
         "Use the initialize_score, add_note_to_score, and add_abc_to_score tools to manage and construct symbolic scores. Prefer add_abc_to_score when the user wants to enter multiple notes or a melody line quickly using ABC notation or TinyNotation. Use delete_note_from_score to remove or replace notes/rests, edit_note_in_score to edit pitches/durations of existing notes, insert_measure_into_score to insert blank measures, and delete_measure_from_score to remove measures.\n"
         "Use the transpose_score tool to transpose all notes/chords and key signatures in the active score up or down by a given number of semitones. Use transpose_part_in_score to transpose a single part/track in the score.\n"
@@ -1208,6 +1252,7 @@ root_agent = Agent(
         evaluate_interval,
         list_scale_pitches,
         analyze_chord,
+        render_chord_diagram,
         detect_key,
         initialize_score,
         add_note_to_score,

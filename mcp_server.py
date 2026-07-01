@@ -437,6 +437,32 @@ def transpose_part_in_score(part_id: str, semitones: int, session_id: str = "def
 
 
 @mcp.tool()
+def render_chord_diagram(pitches: str = "", instrument: str = "piano", chord_name: str = "", session_id: str = "default") -> str:
+    """Renders a beautiful visual diagram (piano keyboard or guitar fretboard) for a chord.
+
+    Args:
+        pitches:    Comma-separated note pitches (e.g. 'C4,E4,G4'). Required if instrument is 'piano'.
+        instrument: The visual layout type, either 'piano' or 'guitar' (default: 'piano').
+        chord_name: The name of the chord for lookup or title rendering (e.g., 'C Major', 'Am7').
+        session_id: The unique score session ID. Defaults to 'default'.
+
+    Returns:
+        JSON with keys: status, action, instrument, chord_name, output_path.
+    """
+    pitches = _sanitize_arg(pitches)
+    instrument = _sanitize_arg(instrument)
+    chord_name = _sanitize_arg(chord_name)
+    session_id = _sanitize_arg(session_id)
+    script = _PROJECT_ROOT / "skills" / "visual_notation_rendering" / "scripts" / "draw_chord.py"
+    cmd = ["--instrument", instrument, "--session-id", session_id]
+    if pitches:
+        cmd += ["--pitches", pitches]
+    if chord_name:
+        cmd += ["--chord-name", chord_name]
+    return _run_script(script, cmd)
+
+
+@mcp.tool()
 def set_score_tempo(bpm: float, offset: float = 0.0, session_id: str = "default") -> str:
     """Set or change the tempo (in BPM) at a specific beat offset in the active score.
 
