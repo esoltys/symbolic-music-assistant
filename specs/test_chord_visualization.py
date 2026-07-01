@@ -15,6 +15,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "agents"))
 
 # Import ADK elements
+from agents.app_utils.visual_runner import VisualRunner
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.artifacts import InMemoryArtifactService
@@ -81,7 +82,7 @@ async def run_evaluation():
         if image_file.is_file():
             image_file.unlink()
             
-        runner = Runner(
+        runner = VisualRunner(
             app=app,
             session_service=InMemorySessionService(),
             artifact_service=InMemoryArtifactService(),
@@ -122,6 +123,7 @@ async def run_evaluation():
         
         actual_tool_calls = []
         response_text = ""
+        has_image_part = False
         async for event in response_stream:
             if hasattr(event, "message") and event.message and event.message.parts:
                 for part in event.message.parts:
@@ -129,9 +131,12 @@ async def run_evaluation():
                         response_text += part.text
                     if part.function_call:
                         actual_tool_calls.append(part.function_call)
+                    if part.inline_data and part.inline_data.mime_type == "image/png":
+                        has_image_part = True
                         
         print(f"Raw Agent Response: {response_text.strip()}")
         print(f"Actual Tool Calls: {actual_tool_calls}")
+        print(f"Has Inline Image Part: {has_image_part}")
         
         actual_inv = Invocation(
             invocation_id=f"inv_{idx}",
@@ -154,7 +159,7 @@ async def run_evaluation():
                     if args.get("instrument") == "guitar" and args.get("chord_name") == "C Major":
                         trajectory_score = 1.0
         
-        # Verify file generation
+        # Verify file generation and image part presence
         file_generated = False
         reasons = []
         if image_file.is_file():
@@ -162,7 +167,10 @@ async def run_evaluation():
         else:
             reasons.append(f"Image file '{image_file}' was not generated.")
             
-        file_mutation_score = 1.0 if file_generated else 0.0
+        if not has_image_part:
+            reasons.append("Multipart response did not include the binary image/png part.")
+            
+        file_mutation_score = 1.0 if (file_generated and has_image_part) else 0.0
         
         scoring_blocks.append({
             "scenario": sc["name"],

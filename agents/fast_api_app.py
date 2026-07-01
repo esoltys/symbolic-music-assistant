@@ -45,8 +45,9 @@ AGENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from agents.agent import app as adk_app
     from agents.agent import root_agent
+    from agents.app_utils.visual_runner import VisualRunner
 
-    runner = Runner(
+    runner = VisualRunner(
         app=adk_app,
         session_service=services.get_session_service(),
         artifact_service=services.get_artifact_service(),
